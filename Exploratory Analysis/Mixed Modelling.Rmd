@@ -1,0 +1,325 @@
+---
+title: "Mixed Model"
+output: html_notebook
+---
+
+```{r setup, include = FALSE}
+library('groundhog')
+groundhog.library(
+  c(
+    'papaja', #for apa formatting
+    'pwr', # for power calculation
+    'tidyverse', # for pipe %>%
+    'emmeans',
+    'afex',
+    'patchwork',
+    'officer',
+    'cowplot',
+    'ggrepel',
+    'dplyr',
+    'lme4',
+    'MuMIn',
+    'BayesFactor'
+  ), "2024-04-09"
+)
+
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE, results='hide')
+```
+
+
+
+```{r}
+pilot.df <- read.csv("combined_pilot_batches.csv", na=c("")) %>%
+  filter(!(word %in% c('', 'ZEBRA'))) %>%
+  mutate(subj_id=PROLIFIC_PID)
+pilot.df
+```
+
+
+# Prepare all the dataframes
+
+```{r}
+data_from_games <- pilot.df %>%
+  filter(trial_type=='Hangman_replay') %>%
+  dplyr::select(subj_id,word,num_clicks) 
+data_from_games
+
+data_from_confidence <- read.csv("combined_pilot_batches.csv") %>%
+  mutate(subj_id=PROLIFIC_PID,
+         confidence=as.numeric(confidence_slider_self_response)) %>%
+  group_by(subj_id) %>%
+  summarise(
+    confidence=mean(confidence,na.rm=T)
+  )
+data_from_confidence
+
+data_from_guesses <- pilot.df %>%
+  filter(trial_type=='Guess_leaderboard') %>%
+  dplyr::select(subj_id,subject_pair,word,position,position_RT,true_position,reveal_word,player,distance, self_rating)
+data_from_guesses
+          
+#Merge above to new usable, filtered dataframe
+filtered_df <- data_from_games %>%
+  merge(data_from_guesses) %>%
+  merge(data_from_confidence)
+filtered_df
+
+#Change variables from characters to correct classification 
+#Change reveal_word into a categorical variable
+filtered_df$reveal_word <- factor(filtered_df$reveal_word)
+#Change position into an integer variable 
+filtered_df$position <- as.integer(filtered_df$position)
+#Change true_position into an integer variable
+filtered_df$true_position <- as.integer(filtered_df$true_position)
+#Change distance into an integer variable 
+filtered_df$distance <- as.integer(filtered_df$distance)
+#Change self-rating into an integer
+filtered_df$self_rating <- as.integer(filtered_df$self_rating)
+#Change word into a categorical variable 
+filtered_df$word <- factor(filtered_df$word)
+#Change distance into an integer variable 
+filtered_df$distance <- as.integer(filtered_df$distance)
+#change confidence into an integer variable
+filtered_df$confidence <- as.integer(filtered_df$confidence)
+
+#Check variables were changed correctly
+#Check class reveal_word
+class(filtered_df$reveal_word)
+#Check class position 
+class(filtered_df$position)
+#Check class true position 
+class(filtered_df$true_position)
+#check class distance 
+class(filtered_df$distance)
+#check class self rating
+class(filtered_df$self_rating)
+#check class word 
+class(filtered_df$word)
+#check class distance 
+class(filtered_df$distance)
+#check class confidence
+class(filtered_df$confidence)
+
+#Rename levels of reveal_word from true and false to revealed and hidden, respectively 
+filtered_df$reveal_word <- factor(filtered_df$reveal_word, levels = c("true", "false"), labels = c("revealed", "hidden"))
+
+# Check the levels of reveal_word variable
+levels(filtered_df$reveal_word)
+
+#Check changes in filtered_df (which we will be using for our analysis)
+print(filtered_df)
+```
+
+
+```{r}
+word_guess_df <- filtered_df %>%
+  select(subj_id, word, num_clicks, position, reveal_word) 
+#Change word into a categorical variable 
+word_guess_df$word <- factor(word_guess_df$word)
+#Change num_clicks into an integer
+word_guess_df$num_clicks <- as.integer(word_guess_df$num_clicks)
+word_guess_df
+```
+
+Make a new column which counts the number of letters in each word and calls this the correct number of guesses
+
+```{r}
+word_guess_df <- word_guess_df %>%
+  mutate(correct_number_guess = nchar(as.character(word)))
+word_guess_df
+```
+
+Create a new column to count the misses
+
+```{r}
+word_guess_df <- word_guess_df %>%
+  mutate(misses = abs(num_clicks - correct_number_guess))
+word_guess_df
+```
+
+Now make mean data frame by subject 
+
+```{r}
+mean_misses_df <- word_guess_df %>%
+  group_by(word) %>%
+ summarize(mean_misses = mean(misses))
+mean_misses_df
+```
+
+
+```{r}
+word_guess_miss.df <- word_guess_df %>%
+  left_join(mean_misses_df, by = "word")
+word_guess_miss.df
+```
+
+
+Now work out player comeptence per game watched, which is miss per game - mean miss per word 
+
+```{r}
+subj_comp_df <- word_guess_miss.df %>%
+  mutate(player_competence = misses - mean_misses)
+subj_comp_df
+```
+
+
+```{r}
+subj_comp_speed_df <- read.csv("speed.time.word.csv")
+subj_comp_speed_df
+```
+
+merge(df1, df2, by = c("subj_id", "word"))
+```{r}
+merge.speed_df <-
+  merge(subj_comp_df, subj_comp_speed_df, by = c("subj_id", "word")) 
+merge.speed_df
+```
+
+1. Misses Only Model
+
+```{r}
+summary(simple_miss <- lmer(position ~ 1+misses + 
+                              (1+misses |subj_id), 
+                            data=merge.speed_df))
+```
+
+```{r}
+summary(rePCA(simple_miss))
+```
+
+```{r}
+#Determine R2:
+r.squaredGLMM(simple_miss) 
+```
+Fixed Effects Contribution (R²m): 24.63% 
+Random Effects Contribution (R²c - R²m): 26.63% 
+Overall Model Fit (R²c): 51.26% 
+
+
+2. Misses and Game Duration
+
+```{r}
+summary(misses_speed <- lmer(position  ~ 1+ misses + t +
+                            (1 + misses + t | subj_id),
+                            data=merge.speed_df))
+```
+
+```{r}
+summary(rePCA(misses_speed))
+```
+
+```{r}
+anova(simple_miss, misses_speed)
+```
+
+```{r}
+#Determine R2:
+r.squaredGLMM(misses_speed) 
+```
+
+R²m (Marginal R²):
+
+Fixed Effects Contribution (R²m): 29.72% 
+Random Effects Contribution (R²c - R²m):31.92% 
+Overall Model Fit (R²c): 61.64% 
+
+
+3. Word Difficulty and Player Competence
+
+
+```{r}
+summary(difficulty_competence <- lmer(position  ~ 1+ mean_misses + player_competence +
+                            (1 + mean_misses + player_competence | subj_id),
+                            data=merge.speed_df))
+```
+
+
+```{r}
+summary(rePCA(difficulty_competence))
+```
+
+```{r}
+anova(simple_miss, difficulty_competence)
+```
+
+
+```{r}
+#Determine R2:
+r.squaredGLMM(difficulty_competence) 
+```
+
+Fixed Effects Contribution (R²m): 24.75% 
+Random Effects Contribution (R²c - R²m): 27.33% 
+Overall Model Fit (R²c): 52.08% 
+
+
+4. Misses, game duration and condition
+
+
+```{r}
+summary(misses_speed_condition <- lmer(position  ~ 1 +  misses + t + reveal_word +
+                            (1 + misses + t + reveal_word | subj_id),
+                            data=merge.speed_df))
+```
+
+```{r}
+#Determine R2:
+r.squaredGLMM(misses_speed_condition) 
+```
+
+
+Fixed Effects Contribution (R²m): 30.42%
+
+Random Effects Contribution (R²c - R²m): 34.73%
+
+Overall Model Fit (R²c): 65.14% 
+
+
+```{r}
+anova(misses_speed, misses_speed_condition)
+```
+
+
+4a
+
+Interactions of condition with speed and with misses
+
+```{r}
+summary(simple_miss_cond <- lmer(position ~ 1+misses*reveal_word + 
+                              (1+misses*reveal_word |subj_id), 
+                            data=merge.speed_df))
+```
+
+```{r}
+summary(speed_cond <- lmer(position  ~ 1+ t*reveal_word +
+                            (1 + t*reveal_word | subj_id),
+                            data=merge.speed_df))
+```
+
+```{r}
+anova(simple_miss_cond, speed_cond)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

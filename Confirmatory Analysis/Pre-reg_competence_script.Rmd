@@ -1,0 +1,359 @@
+---
+title: "Quantifying the effects of privileged knowledge  on the
+  perception of competence"
+---
+
+```{r setup, include = FALSE}
+library('groundhog')
+groundhog.library(
+  c(
+    'papaja', #for apa formatting
+    'pwr', # for power calculation
+    'tidyverse', # for pipe %>%
+    'emmeans',
+    'afex',
+    'patchwork',
+    'officer',
+    'cowplot',
+    'ggrepel',
+    'dplyr'
+  ), "2024-04-09"
+)
+
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE, results='hide')
+```
+
+
+# Data Analysis 
+
+## Rejection Criteria 
+
+Participants that fail the attention check will be excluded.
+
+```{r}
+#Creating the filtered dataframe for analysis 
+pilot.df <- read.csv("combined_pilot_batches.csv", na=c("")) %>%
+  filter(!(word %in% c('', 'ZEBRA'))) %>%
+  mutate(subj_id=PROLIFIC_PID)
+pilot.df
+
+#Create attention dataframe
+data_from_attention <- pilot.df %>%
+  filter(trial_type== 'survey-text') %>%
+  dplyr::select(subj_id, last_word)
+data_from_attention
+
+#Need to remove the rows which have na 
+data_from_attention_clean <- data_from_attention %>%
+  filter(!is.na(last_word))
+data_from_attention_clean
+
+ 
+# Make a dataframe that is just subj_id and word
+data_words <- pilot.df %>%
+  filter(trial_type=='Hangman_replay') %>%
+  dplyr::select(subj_id,word) 
+
+#Change reveal_word into a categorical variable
+data_words$word <- factor(data_words$word)
+data_words
+
+#Make a dataframe with subj_id and the last word they was (5th word); attention check always comes after the final word.
+last_word_subj <- data_words %>%
+  group_by(subj_id) %>%
+  summarize(fifth_word = word[5])
+last_word_subj
+
+#Now merge the two together
+attention_check_full <- left_join(data_from_attention_clean, last_word_subj, by = "subj_id") 
+attention_check_full
+
+#First convert fifth_word to character 
+attention_check_full$fifth_word <- as.character(attention_check_full$fifth_word)
+
+#Now to check attention check pass rate: 
+attention_check_full$letters_match <- tolower(attention_check_full$last_word) == tolower(attention_check_full$fifth_word)
+attention_check_full
+
+#Now to filter to only include subjects which passed the attentionn check 
+attention_check_pass <- attention_check_full %>%
+  filter(letters_match == TRUE)
+attention_check_pass
+```
+
+
+# Hypotheses
+
+The purpose of this study is to examine the effect of access to privileged knowledge on participants’ perception of others’ competence in an online gamified experiment. 
+
+  Hypotheses will be tested using a series of 4 two-tailed repeated measures t-tests, with a significance level of 0.05. 
+  
+
+```{r}
+data_from_games <- pilot.df %>%
+  filter(trial_type=='Hangman_replay') %>%
+  dplyr::select(subj_id,word,num_clicks) 
+data_from_games
+
+data_from_confidence <- read.csv("combined_pilot_batches.csv") %>%
+  mutate(subj_id=PROLIFIC_PID,
+         confidence=as.numeric(confidence_slider_self_response)) %>%
+  group_by(subj_id) %>%
+  summarise(
+    confidence=mean(confidence,na.rm=T)
+  )
+data_from_confidence
+
+data_from_guesses <- pilot.df %>%
+  filter(trial_type=='Guess_leaderboard') %>%
+  dplyr::select(subj_id,subject_pair,word,position,position_RT,true_position,reveal_word,player,distance, self_rating)
+data_from_guesses
+          
+#Merge above to new usable, filtered dataframe
+filtered_df <- data_from_games %>%
+  merge(data_from_guesses) %>%
+  merge(data_from_confidence)
+filtered_df
+
+#Change variables from characters to correct classification 
+#Change reveal_word into a categorical variable
+filtered_df$reveal_word <- factor(filtered_df$reveal_word)
+#Change position into an integer variable 
+filtered_df$position <- as.integer(filtered_df$position)
+#Change true_position into an integer variable
+filtered_df$true_position <- as.integer(filtered_df$true_position)
+#Change distance into an integer variable 
+filtered_df$distance <- as.integer(filtered_df$distance)
+#Change self-rating into an integer
+filtered_df$self_rating <- as.integer(filtered_df$self_rating)
+#Change word into a categorical variable 
+filtered_df$word <- factor(filtered_df$word)
+#Change distance into an integer variable 
+filtered_df$distance <- as.integer(filtered_df$distance)
+#change confidence into an integer variable
+filtered_df$confidence <- as.integer(filtered_df$confidence)
+
+#Check variables were changed correctly
+#Check class reveal_word
+class(filtered_df$reveal_word)
+#Check class position 
+class(filtered_df$position)
+#Check class true position 
+class(filtered_df$true_position)
+#check class distance 
+class(filtered_df$distance)
+#check class self rating
+class(filtered_df$self_rating)
+#check class word 
+class(filtered_df$word)
+#check class distance 
+class(filtered_df$distance)
+#check class confidence
+class(filtered_df$confidence)
+
+#Rename levels of reveal_word from true and false to revealed and hidden, respectively 
+filtered_df$reveal_word <- factor(filtered_df$reveal_word, levels = c("true", "false"), labels = c("revealed", "hidden"))
+
+# Check the levels of reveal_word variable
+levels(filtered_df$reveal_word)
+
+#Check changes in filtered_df (which we will be using for our analysis)
+print(filtered_df)
+```
+
+```{r create-paired-df}
+#Create Paired dataset for analysis
+hidden_df <- filtered_df %>%
+  filter(reveal_word=='hidden') 
+
+revealed_df <- filtered_df %>%
+  filter(reveal_word=='revealed') 
+
+paired_df <- hidden_df %>%
+  merge(revealed_df, by=c('subject_pair','word','player','true_position','num_clicks'),
+        suffixes=c('.hidden','.revealed'))
+paired_df
+```
+
+```{r mean-df-paired}
+#Createdmean paired dataframe for position and self-rating analysis 
+mean_df <- paired_df %>%
+  group_by(subject_pair)%>%
+  summarise(self_rating.hidden=mean(self_rating.hidden),
+            self_rating.revealed=mean(self_rating.revealed),
+            position.hidden=mean(position.hidden),
+            position.revealed=mean(position.revealed),
+            confidence.hidden=mean(confidence.hidden),
+            confidence.revealed=mean(confidence.revealed),
+            distance.hidden=mean(distance.hidden),
+            distance.revealed=mean(distance.revealed))%>%
+  mutate(self_rating.diff=self_rating.hidden-self_rating.revealed,
+         position.diff=position.hidden-position.revealed,
+         confidence.diff=confidence.hidden-confidence.revealed,
+         distance.diff=distance.hidden-distance.revealed)
+mean_df
+```
+
+*Hypothesis 1 (position ranking):* We will test the null hypothesis that there is no difference in participants’ position ranking (on the leaderboard of the upcoming tournament of players) between the hidden outcome and revealed outcome conditions. A repeated measures t-test will be carried out on the paired participants between the hidden outcome and revealed outcome conditions. 
+
+```{r}
+mean_df$position.revealed%>%mean()
+mean_df$position.hidden%>%mean()
+mean_df$position.revealed%>%sd()
+mean_df$position.hidden%>%sd()
+t_test_result_position_pair <- t.test(mean_df$position.hidden, mean_df$position.revealed, paired = TRUE)
+t_test_result_position_pair
+```
+```{r}
+# Reshape the data to long format
+mean_df_position_long <- gather(mean_df, key = "Condition", value = "Self_Rating", position.hidden, position.revealed)
+mean_df_position_long
+```
+
+```{r}
+mean_df_position_long$Condition <- as.factor(mean_df_position_long$Condition)
+```
+
+```{r}
+mean_df_position_long <- mean_df_position_long %>%
+  mutate(Condition = factor(Condition, levels = c("position.hidden", "position.revealed"))) %>%
+  arrange(subject_pair, Condition) # Order by subject_pair and Condition
+mean_df_position_long
+```
+
+
+```{r}
+# Create the boxplot
+p1 <- ggplot(mean_df_position_long, aes(x = Condition, y = Self_Rating)) +
+  geom_boxplot(aes(fill = Condition), alpha = 0.2) + # Main boxplots with Condition as fill
+  geom_jitter(aes(color = Condition), width = 0.2, size = 2) + # Individual data points
+  labs(title = "Position by Condition",
+       x = "Condition",
+       y = "Position") +
+  theme(text = element_text(size = 11, face = "bold"),
+        plot.title = element_text(size = 12, face = "bold"),
+         legend.position = "none")+
+  scale_fill_manual(values = c('#99CC00', '#993399')) + # Colors for boxplots
+  scale_color_manual(values = c('#99CC00', '#993399')) # Colors for jittered points
+
+p1
+```
+
+
+*Hypotheses 2 (self-rating):* We will test the null hypothesis that there is no difference in participants’ self-rating (participants ranking of themselves from 1st to 6th, had they played against the 5 players they watched) between the hidden outcome and revealed outcome conditions. A repeated measures t-test will be carried out on the paired participants between the hidden outcome and revealed outcome conditions. 
+
+```{r}
+mean_df$self_rating.revealed%>%mean()
+mean_df$self_rating.hidden%>%mean()
+mean_df$self_rating.revealed%>%sd()
+mean_df$self_rating.hidden%>%sd()
+t_test_result_self_rating_pair <- t.test(mean_df$self_rating.hidden, mean_df$self_rating.revealed, paired = TRUE)
+t_test_result_self_rating_pair
+```
+
+```{r}
+# Reshape the data to long format
+mean_df_selfrating_long <- gather(mean_df, key = "Condition", value = "Self_Rating", self_rating.hidden, self_rating.revealed)
+```
+
+```{r}
+# Create the boxplot
+p2 <- ggplot(mean_df_selfrating_long, aes(x = Condition, y = Self_Rating)) +
+  geom_boxplot(aes(fill = Condition), alpha = 0.2) +
+  geom_jitter(aes(color = Condition), width = 0.2, size = 2) +
+  labs(title = "Self-Ratings by Condition",
+       x = "Condition",
+       y = "Self-Rating") +
+  theme(text = element_text(size=11, face="bold"),
+    plot.title = element_text(size=12, face="bold"),
+     legend.position = "none")+
+  scale_fill_manual(values = c('#99CC00', '#993399')) + # Colors for boxplots
+  scale_color_manual(values = c('#99CC00', '#993399')) # Colors for jittered points
+
+p2
+```
+
+*Hypothesis 3 (confidence):* We will test the null hypothesis that there is no difference in participants’ confidence (of their self-rating) between the hidden outcome and revealed outcome conditions. A repeated measures t-test will be carried out on the paired participants between the hidden outcome and revealed outcome conditions. 
+
+```{r}
+mean_df$confidence.revealed%>%mean()
+mean_df$confidence.hidden%>%mean()
+mean_df$confidence.revealed%>%sd()
+mean_df$confidence.hidden%>%sd()
+t_test_result_confidence_pair <- t.test(mean_df$confidence.hidden, mean_df$confidence.revealed, paired = TRUE)
+t_test_result_confidence_pair
+```
+```{r}
+# Reshape the data to long format
+mean_df_confidence_long <- gather(mean_df, key = "Condition", value = "Self_Rating", confidence.hidden, confidence.revealed)
+```
+
+```{r}
+# Create the boxplot
+p3 <- ggplot(mean_df_confidence_long, aes(x = Condition, y = Self_Rating)) +
+  geom_boxplot(aes(fill = Condition), alpha = 0.2) +
+  geom_jitter(aes(color = Condition), width = 0.2, size = 2) +
+  labs(title = "Confidence by Condition",
+       x = "Condition",
+       y = "Confidence") +
+    theme(text = element_text(size=11, face="bold"),
+    plot.title = element_text(size=12, face="bold"),
+     legend.position = "none")+
+  scale_fill_manual(values = c('#99CC00', '#993399')) + # Colors for boxplots
+  scale_color_manual(values = c('#99CC00', '#993399')) 
+p3
+```
+
+*Hypothesis 4 (accuracy):* We will test the null hypothesis that there is no difference in participants’ accuracy (the measure between participants position ranking of the player and the real ranking of the player) between the hidden outcome and revealed outcome conditions. A repeated measures t-test will be carried out on the paired participants between the hidden outcome and revealed outcome conditions. 
+
+```{r}
+mean_df$distance.revealed%>%mean()
+mean_df$distance.hidden%>%mean()
+mean_df$distance.revealed%>%sd()
+mean_df$distance.hidden%>%sd()
+t_test_result_accuracy_pair <- t.test(mean_df$distance.hidden, mean_df$distance.revealed, paired = TRUE)
+t_test_result_accuracy_pair
+```
+```{r}
+# Reshape the data to long format
+mean_df_accuracy_long <- gather(mean_df, key = "Condition", value = "Self_Rating", distance.hidden, distance.revealed)
+```
+
+```{r}
+# Create the boxplot
+p4 <- ggplot(mean_df_accuracy_long, aes(x = Condition, y = Self_Rating)) +
+  geom_boxplot(aes(fill = Condition), alpha = 0.2) +
+  geom_jitter(aes(color = Condition), width = 0.2, size = 2) +
+  labs(title = "Accuracy by Condition",
+       x = "Condition",
+       y = "Accuracy") +
+  theme(text = element_text(size=11, face="bold"),
+    plot.title = element_text(size=12, face="bold"),
+    legend.position = "none")+
+  scale_fill_manual(values = c('#99CC00', '#993399')) + # Colors for boxplots
+  scale_color_manual(values = c('#99CC00', '#993399')) 
+p4
+```
+
+
+```{r}
+# Combine plots using cowplot
+combined_plot1 <- plot_grid(p1, p4, ncol = 2)
+combined_plot1
+ggsave(file="confirmatory plots/combinedBoxplot1.png")
+```
+
+
+
+```{r}
+# Combine plots using cowplot
+combined_plot2 <- plot_grid(p2, p3, ncol = 2)
+combined_plot2
+ggsave(file="confirmatory plots/combinedBoxplot2.png")
+```
+
+
+
+
+
+

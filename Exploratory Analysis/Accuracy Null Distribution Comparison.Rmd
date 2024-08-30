@@ -1,0 +1,239 @@
+---
+title: "Accuracy Null Distribution Comparison"
+output: html_notebook
+---
+
+```{r setup, include = FALSE}
+library('groundhog')
+groundhog.library(
+  c(
+    'papaja', #for apa formatting
+    'pwr', # for power calculation
+    'tidyverse', # for pipe %>%
+    'emmeans',
+    'afex',
+    'patchwork',
+    'officer',
+    'cowplot',
+    'ggrepel',
+    'dplyr',
+    'purr',
+    'BayesFactor'
+  ), "2024-04-09"
+)
+
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE, results='hide')
+```
+
+
+```{r}
+pilot.df <- read.csv("combined_pilot_batches.csv", na=c("")) %>%
+  filter(!(word %in% c('', 'ZEBRA'))) %>%
+  mutate(subj_id=PROLIFIC_PID)
+pilot.df
+```
+
+
+# Prepare all the dataframes
+
+```{r}
+data_from_games <- pilot.df %>%
+  filter(trial_type=='Hangman_replay') %>%
+  dplyr::select(subj_id,word,num_clicks) 
+data_from_games
+
+data_from_confidence <- read.csv("combined_pilot_batches.csv") %>%
+  mutate(subj_id=PROLIFIC_PID,
+         confidence=as.numeric(confidence_slider_self_response)) %>%
+  group_by(subj_id) %>%
+  summarise(
+    confidence=mean(confidence,na.rm=T)
+  )
+data_from_confidence
+
+data_from_guesses <- pilot.df %>%
+  filter(trial_type=='Guess_leaderboard') %>%
+  dplyr::select(subj_id,subject_pair,word,position,position_RT,true_position,reveal_word,player,distance, self_rating)
+data_from_guesses
+          
+#Merge above to new usable, filtered dataframe
+filtered_df <- data_from_games %>%
+  merge(data_from_guesses) %>%
+  merge(data_from_confidence)
+filtered_df
+
+#Change variables from characters to correct classification 
+#Change reveal_word into a categorical variable
+filtered_df$reveal_word <- factor(filtered_df$reveal_word)
+#Change position into an integer variable 
+filtered_df$position <- as.integer(filtered_df$position)
+#Change true_position into an integer variable
+filtered_df$true_position <- as.integer(filtered_df$true_position)
+#Change distance into an integer variable 
+filtered_df$distance <- as.integer(filtered_df$distance)
+#Change self-rating into an integer
+filtered_df$self_rating <- as.integer(filtered_df$self_rating)
+#Change word into a categorical variable 
+filtered_df$word <- factor(filtered_df$word)
+#Change distance into an integer variable 
+filtered_df$distance <- as.integer(filtered_df$distance)
+#change confidence into an integer variable
+filtered_df$confidence <- as.integer(filtered_df$confidence)
+
+#Check variables were changed correctly
+#Check class reveal_word
+class(filtered_df$reveal_word)
+#Check class position 
+class(filtered_df$position)
+#Check class true position 
+class(filtered_df$true_position)
+#check class distance 
+class(filtered_df$distance)
+#check class self rating
+class(filtered_df$self_rating)
+#check class word 
+class(filtered_df$word)
+#check class distance 
+class(filtered_df$distance)
+#check class confidence
+class(filtered_df$confidence)
+
+#Rename levels of reveal_word from true and false to revealed and hidden, respectively 
+filtered_df$reveal_word <- factor(filtered_df$reveal_word, levels = c("true", "false"), labels = c("revealed", "hidden"))
+
+# Check the levels of reveal_word variable
+levels(filtered_df$reveal_word)
+
+#Check changes in filtered_df (which we will be using for our analysis)
+print(filtered_df)
+```
+
+
+REWORKING THE NULL DISTRIBUTION 
+
+For each pariticipant have 5 true and 5 predicted scores... 
+If you do a spearmans correlation between them then you have 100 spearmans for revealed and hidden each 
+Now do a t-test to see if accuracy is better between the conditions...
+Then can do a pop level one too and compare the mean correaltion to 0 - if it's sig higher than 0 it means they are accurate in their judgments.... 
+
+Now to make the null distribution, we would randomly rearrange the the predicted scores from the true scores, and do the same as above.... 
+
+```{r}
+filtered_df
+```
+
+```{r}
+# Calculate the mean and standard deviation of accuracy
+mean_acc <- mean(filtered_df$distance)
+sd_acc <- sd(filtered_df$distance)
+mean_acc
+sd_acc
+```
+
+
+
+Create a data set where position and true position are randomly shuffled per player 
+
+```{r}
+shuffle_within_group <- function(df) {
+  df %>%
+    group_by(subj_id) %>%
+    mutate(
+      position = sample(position),
+      true_position = sample(true_position)
+    ) %>%
+    ungroup()
+}
+```
+
+Apply function to the dataframe 
+
+```{r}
+shuffled_filtered_df <- shuffle_within_group(filtered_df)
+shuffled_filtered_df
+```
+
+```{r}
+shuffled_distance_df <- shuffled_filtered_df %>%
+  mutate(distance = abs(true_position - position))
+shuffled_distance_df
+```
+
+Create Full Null Distribution
+
+```{r}
+# Define the function to shuffle and compute distances
+shuffle_and_compute_distance <- function(df) {
+  df %>%
+    group_by(subj_id) %>%
+    mutate(
+      position = sample(position),
+      true_position = sample(true_position)
+    ) %>%
+    ungroup() %>%
+    mutate(distance = abs(true_position - position)) %>%
+    pull(distance)  # Extract the distance column as a vector
+}
+
+# Initialize a vector to store null distances
+null_dist_shuffled <- numeric(10000)
+
+# Perform 10,000 iterations
+for (i in 1:10000) {
+  shuffled_df <- shuffle_and_compute_distance(filtered_df)
+  null_dist_shuffled[i] <- mean(shuffled_df)  # Store the mean distance for each iteration
+}
+
+null_dist_shuffled
+```
+
+
+```{r}
+# Calculate the mean and standard deviation of the null distribution
+null_mean_shuf <- mean(null_dist_shuffled)
+null_sd_shuf <- sd(null_dist_shuffled)
+null_mean_shuf
+null_sd_shuf
+```
+
+CALCULATE OBSERVED ACCURACY TO COMPARE IT WITH 
+
+Now need to work out actual observed difference mean - using the subject and not the paired data
+
+```{r}
+mean_distance_by_subj <- mean(filtered_df$distance)
+mean_distance_by_subj
+```
+
+```{r}
+observed_accuracy <- mean_distance_by_subj
+```
+
+
+
+
+```{r}
+# Compare observed accuracy to the null distribution
+p_value_null_shuffled_distance <- mean(null_dist_shuffled <= observed_accuracy)
+p_value_null_shuffled_distance
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

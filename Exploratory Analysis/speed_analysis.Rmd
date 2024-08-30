@@ -1,0 +1,379 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Code based on : 
+
+https://github.com/matanmazor/ignorance/blob/main/docs/hangman.Rmd
+
+```{r}
+library(groundhog)
+
+groundhog.library(c(
+  'png',
+  'grid',
+  'ggplot2',
+  'svglite',
+  'xtable',
+  'papaja',
+  'tidyverse',
+  'broom',
+  'cowplot',
+  'reticulate',
+  'MESS', # for AUCs
+  'lsr', # for effect sizes
+  'pwr', # for power calculations
+  'brms', # for mixed effects modeling
+  'BayesFactor', # for Bayesian t test
+  'jsonlite', # parsing data from sort_trial
+  'caret', #for cross validation
+  'ggrepel', #for ggplot words
+  'caret', #for cross validation
+  'kernlab' #for SVM
+), '2024-04-09')
+```
+
+
+Load csv 
+
+```{r}
+speed.df <- read.csv('combined_data_speed.csv',na.strings=c(""," ","NA")) %>%
+  rename(subj_id = PROLIFIC_PID) %>%
+   filter(!(word %in% c('', 'ZEBRA'))) %>%
+  mutate(subj_id = factor(subj_id))
+speed.df
+```
+
+Format Data 
+
+```{r}
+position_df <- speed.df %>%
+  filter(trial_type== 'Guess_leaderboard') %>%
+  dplyr::select(subj_id, subject_pair, word, position)
+position_df
+```
+
+
+```{r}
+
+speed.click_df <- speed.df %>%
+ filter(trial_type=='Hangman_replay') %>%
+  dplyr::select(subj_id, subject_pair,
+         reveal_word, 
+         word,
+         num_clicks,
+         click_log) 
+speed.click_df
+```
+
+Make a dataframe for later use with all of the relevant information merged from the two dataframes above
+
+```{r}
+speed.relevant.df <- speed.click_df %>%
+  merge(position_df) 
+speed.relevant.df
+```
+
+
+```{r}
+speed.click_df <- speed.click_df %>%
+  rowwise()%>%
+  mutate(num_hits = strsplit(gsub(' ','',word),split='')[[1]]%>%unique()%>%length(),
+         click_log = gsub("\'","\"", click_log),
+         click_log = gsub("None","null", click_log),
+         word = factor(word,levels=c(
+           'KENTUCKY',
+           'HAWAII',
+           'USAIN BOLT',
+           'SHAKIRA',
+           'FIG',
+           'NECTARINE',
+           'WRIST',
+           'THUMB',
+           'THIRTY FOUR'
+         ))) 
+speed.click_df
+```
+
+
+```{r}
+
+speed.click_log <- data.frame(matrix(ncol=9,nrow=0, 
+                               dimnames=list(NULL, 
+                                             c("subj_id",
+                                              "test_part", 
+                                              "word",
+                                              "num_clicks",
+                                              "letter",
+                                              "hit",
+                                              "t",
+                                              "reveal_word",
+                                              "click_number"))))
+
+
+for (row in 1:nrow(speed.click_df)) {
+  
+    subject_click_log <- data.frame(fromJSON(speed.click_df[row, ]$click_log)) %>%
+    mutate(
+      letter = lead(letter,1),
+      t = lead(t,1),
+      hit = lead(hit,1),
+      click_number = 1:n(),
+      subj_id = speed.click_df[row, ]$subj_id,
+      word = speed.click_df[row, ]$word,
+      reveal_word = speed.click_df[row, ]$reveal_word,
+      num_clicks = speed.click_df[row, ]$num_clicks
+    )%>%
+      filter(click_number<=num_clicks)
+    
+    speed.click_log <- rbind(speed.click_log, subject_click_log);
+}
+    
+
+speed.click_log <- speed.click_log %>%
+  relocate(subj_id, .before = letter) %>%
+  relocate(word, .before=letter) %>% 
+  relocate(reveal_word, .before=letter) %>% 
+  relocate(click_number, .before=letter) %>%
+  group_by(subj_id,word) %>%
+  mutate(RT=t-lag(t,default=0)) %>%
+  group_by(subj_id,word) %>%
+  rowwise()
+
+speed.click_log
+```
+
+
+```{r}
+speed.total_time_df <- speed.click_log %>%
+ filter(click_number==num_clicks)%>%
+  mutate(t=t/1000)
+speed.total_time_df
+```
+
+```{r}
+speed.time.word.subj.df <- speed.total_time_df %>%
+  select(subj_id, word, t)
+speed.time.word.subj.df
+```
+
+```{r}
+write.csv(speed.time.word.subj.df, file = "speed.time.word.csv")
+```
+
+```{r}
+plotSpeed <- speed.total_time_df %>%
+  ggplot(aes(x=word,y=t)) +
+  geom_boxplot() +
+  scale_y_continuous(limits=c(0,100))
+plotSpeed
+```
+
+Correlation 
+
+```{r}
+speed_complete.df <- speed.total_time_df %>%
+  merge(speed.relevant.df)
+speed_complete.df
+```
+
+```{r}
+mean_speed_df <- speed_complete.df %>%
+  group_by(word) %>%
+ summarize(mean_speed = mean(t))
+mean_speed_df
+```
+ 
+```{r}
+mean_position_df <- speed_complete.df %>%
+  group_by(word) %>%
+  summarize(mean_position = mean(position)) 
+mean_position_df
+```
+Merge 
+
+```{r}
+mean_speed_position_df <- mean_position_df %>%
+  merge(mean_speed_df) 
+mean_speed_position_df
+```
+
+
+Correlation between word speed and position 
+
+```{r}
+correlation_speed_pos <- cor.test(mean_speed_position_df$mean_position, mean_speed_position_df$mean_speed)
+correlation_speed_pos
+```
+
+A Pearson's product-moment correlation was conducted to examine the relationship between mean position and mean speed. The analysis revealed a positive correlation between these variables, though the relationship was not statistically significant, r(7)=0.53, p=.14. The 95% confidence interval for the correlation ranged from −0.20 to 0.88, suggesting uncertainty about the true strength of the relationship.
+
+
+
+
+```{r}
+speed_split.df <- speed.total_time_df %>%
+  merge(speed.df) %>%
+   spread(reveal_word,t)
+speed_split.df
+```
+
+```{r}
+speed_split.df <- speed_split.df %>%
+  rename(
+    hidden = `False`,
+    revealed = `True`
+  )
+speed_split.df
+```
+
+```{r}
+speed_split_pair.df <- speed_split.df %>%
+  arrange(subject_pair) %>%  # Arrange data by subject_pair
+  select(-subj_id) 
+speed_split_pair.df
+```
+
+
+
+
+BY SUBJ_ID
+
+t is time. Want to look at the correlation between speed of game and predicted score given 
+So will end up with 200 values, each one is a correlation per subject (correlation of ther 5 games)
+
+```{r}
+speed_complete.df
+```
+
+
+```{r}
+#Define a function to calculate correlation for each participant
+calc_correlation <- function(data) {
+  cor(data$t, data$position, use = "complete.obs")
+}
+```
+
+
+```{r}
+#Apply the function to each participant
+correlation_speed <- speed_complete.df %>%
+  group_by(subj_id) %>%
+  summarise(correlation = calc_correlation(cur_data()))
+correlation_speed
+```
+
+```{r}
+# Perform a one-sample t-test to see if the mean correlation is different from 0
+t_test_pop <- t.test(correlation_speed$correlation, mu = 0)
+t_test_pop
+```
+
+A one-sample t-test revealed a significant positive mean correlation between speed and the measured variable, t(197)=10.32,p<.001. The 95% confidence interval for the mean correlation ranged from 0.28 to 0.41, with a sample mean of M=0.34. This suggests a robust positive relationship.
+
+
+Make a dataframe for revealed and for hidden 
+
+```{r}
+revealed_speed.df <- speed_complete.df %>% filter(reveal_word == "True")
+hidden_speed.df <- speed_complete.df %>% filter(reveal_word == "False")
+```
+
+```{r}
+revealed_speed.df
+hidden_speed.df
+```
+
+
+```{r}
+#Apply the function to each participant
+correlation_speed_revealed <- revealed_speed.df %>%
+  group_by(subj_id) %>%
+  summarise(correlation_revealed = calc_correlation(cur_data()))
+correlation_speed_revealed
+```
+
+```{r}
+# Perform a one-sample t-test to see if the mean correlation is different from 0
+t_test_revealed_speed <- t.test(correlation_speed_revealed$correlation_revealed, mu = 0)
+t_test_revealed_speed
+```
+
+A one-sample t-test indicated a significant positive mean correlation between speed and the measured variable in the revealed condition, t(99)=5.74,p<.001. The 95% confidence interval for the mean correlation was [0.18, 0.38], with a sample mean of M=0.28. This suggests a moderate positive relationship.
+
+
+```{r}
+#Apply the function to each participant
+correlation_speed_hidden <- hidden_speed.df %>%
+  group_by(subj_id) %>%
+  summarise(correlation_hidden = calc_correlation(cur_data()))
+correlation_speed_hidden
+```
+
+```{r}
+# Perform a one-sample t-test to see if the mean correlation is different from 0
+t_test_hidden_speed <- t.test(correlation_speed_hidden$correlation_hidden, mu = 0)
+t_test_hidden_speed
+```
+
+A one-sample t-test revealed a significant positive mean correlation between speed and the measured variable in the hidden condition, t(97)=9.19,p<.001. The 95% confidence interval for the mean correlation was [0.32, 0.49], with a sample mean of M=0.40. This indicates a strong positive relationship.
+
+Combine datasets 
+
+```{r}
+t_test_result <- t.test(correlation_speed_hidden$correlation_hidden, correlation_speed_revealed$correlation_revealed, var.equal = TRUE)
+t_test_result
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

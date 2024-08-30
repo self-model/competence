@@ -1,0 +1,611 @@
+---
+title: "Correlations"
+output: html_notebook
+---
+
+Correlation analyses for: 
+
+1. Correlation for accuracy - participant/individual level
+2. Correlation between self-rating and confidence 
+3. Correlation between mean misses per word and mean ranking per word
+4. Correlation between mean word difficulty per participant and mean predicted position ranking 
+5. Correlation between mean misses per participant and mean predicted position ranking 
+
+*Note - For correlation between word completion speed and predicted position please see speed analysis folder
+
+LOAD PACKAGES
+
+```{r setup, include = FALSE}
+library('groundhog')
+groundhog.library(
+  c(
+    'papaja', #for apa formatting
+    'pwr', # for power calculation
+    'tidyverse', # for pipe %>%
+    'emmeans',
+    'afex',
+    'patchwork',
+    'officer',
+    'cowplot',
+    'ggrepel',
+    'dplyr',
+    'BayesFactor'
+  ), "2024-04-09"
+)
+
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE, results='hide')
+```
+
+
+CREATE DATAFRAMES
+
+```{r}
+pilot.df <- read.csv("combined_pilot_batches.csv", na=c("")) %>%
+  filter(!(word %in% c('', 'ZEBRA'))) %>%
+  mutate(subj_id=PROLIFIC_PID)
+pilot.df
+```
+
+
+# Prepare all the dataframes
+
+```{r}
+data_from_games <- pilot.df %>%
+  filter(trial_type=='Hangman_replay') %>%
+  dplyr::select(subj_id,word,num_clicks) 
+data_from_games
+
+data_from_confidence <- read.csv("combined_pilot_batches.csv") %>%
+  mutate(subj_id=PROLIFIC_PID,
+         confidence=as.numeric(confidence_slider_self_response)) %>%
+  group_by(subj_id) %>%
+  summarise(
+    confidence=mean(confidence,na.rm=T)
+  )
+data_from_confidence
+
+data_from_guesses <- pilot.df %>%
+  filter(trial_type=='Guess_leaderboard') %>%
+  dplyr::select(subj_id,subject_pair,word,position,position_RT,true_position,reveal_word,player,distance, self_rating)
+data_from_guesses
+          
+#Merge above to new usable, filtered dataframe
+filtered_df <- data_from_games %>%
+  merge(data_from_guesses) %>%
+  merge(data_from_confidence)
+filtered_df
+
+#Change variables from characters to correct classification 
+#Change reveal_word into a categorical variable
+filtered_df$reveal_word <- factor(filtered_df$reveal_word)
+#Change position into an integer variable 
+filtered_df$position <- as.integer(filtered_df$position)
+#Change true_position into an integer variable
+filtered_df$true_position <- as.integer(filtered_df$true_position)
+#Change distance into an integer variable 
+filtered_df$distance <- as.integer(filtered_df$distance)
+#Change self-rating into an integer
+filtered_df$self_rating <- as.integer(filtered_df$self_rating)
+#Change word into a categorical variable 
+filtered_df$word <- factor(filtered_df$word)
+#Change distance into an integer variable 
+filtered_df$distance <- as.integer(filtered_df$distance)
+#change confidence into an integer variable
+filtered_df$confidence <- as.integer(filtered_df$confidence)
+
+#Check variables were changed correctly
+#Check class reveal_word
+class(filtered_df$reveal_word)
+#Check class position 
+class(filtered_df$position)
+#Check class true position 
+class(filtered_df$true_position)
+#check class distance 
+class(filtered_df$distance)
+#check class self rating
+class(filtered_df$self_rating)
+#check class word 
+class(filtered_df$word)
+#check class distance 
+class(filtered_df$distance)
+#check class confidence
+class(filtered_df$confidence)
+
+#Rename levels of reveal_word from true and false to revealed and hidden, respectively 
+filtered_df$reveal_word <- factor(filtered_df$reveal_word, levels = c("true", "false"), labels = c("revealed", "hidden"))
+
+# Check the levels of reveal_word variable
+levels(filtered_df$reveal_word)
+
+#Check changes in filtered_df (which we will be using for our analysis)
+print(filtered_df)
+```
+
+```{r create-paired-df}
+#Create Paired dataset for analysis
+hidden_df <- filtered_df %>%
+  filter(reveal_word=='hidden') 
+
+revealed_df <- filtered_df %>%
+  filter(reveal_word=='revealed') 
+
+paired_df <- hidden_df %>%
+  merge(revealed_df, by=c('subject_pair','word','player','true_position','num_clicks'),
+        suffixes=c('.hidden','.revealed'))
+paired_df
+```
+
+
+1. CORRELATION FOR ACCURACY - PARTICIPANT/INDVIDUAL LEVEL 
+
+Do a correlation for each ppt between their predicted position and true position 
+
+```{r}
+correlations_pop <- filtered_df %>%
+  group_by(subj_id) %>%
+  summarise(correlation = cor(position, true_position, use = "complete.obs")) %>%
+  ungroup()
+correlations_pop
+```
+
+```{r}
+# Perform a one-sample t-test to see if the mean correlation is different from 0
+t_test_cor_pop <- t.test(correlations_pop$correlation, mu = 0)
+t_test_cor_pop
+```
+
+Now by condition 
+
+Make a dataframe for revealed and for hidden 
+
+```{r}
+revealed_dist.df <- filtered_df %>% filter(reveal_word == "revealed")
+hidden_dist.df <- filtered_df %>% filter(reveal_word == "hidden")
+```
+
+```{r}
+revealed_dist.df
+hidden_dist.df
+```
+
+```{r}
+#Apply the function to each participant revealed condition 
+correlations_revealed <- revealed_dist.df %>%
+  group_by(subj_id) %>%
+  summarise(correlation = cor(position, true_position, use = "complete.obs")) %>%
+  ungroup()
+correlations_revealed
+```
+
+```{r}
+#Apply the function to each participant hidden condition 
+correlations_hidden <- hidden_dist.df %>%
+  group_by(subj_id) %>%
+  summarise(correlation = cor(position, true_position, use = "complete.obs")) %>%
+  ungroup()
+correlations_hidden
+```
+
+
+T-test between both 
+
+```{r}
+t_test_dist_result <- t.test(correlations_hidden$correlation, correlations_revealed$correlation, var.equal = TRUE)
+t_test_dist_result
+```
+
+
+
+2. CORRELATION BETWEEN SELF-RATING AND CONFIDENCE 
+
+```{r}
+filtered_subj_df <- filtered_df %>%
+  group_by(subj_id) %>%
+  select(self_rating, confidence, reveal_word) 
+filtered_subj_df
+```
+
+```{r}
+filtered_subj_df <- filtered_subj_df %>% distinct(subj_id, .keep_all = TRUE)
+filtered_subj_df
+```
+
+```{r}
+correlation_selfconf <- cor.test(filtered_subj_df$confidence, filtered_subj_df$self_rating)
+correlation_selfconf
+```
+
+```{r}
+revealed_selfconf_df <- filtered_subj_df %>% filter(reveal_word == "revealed")
+hidden_selfconf_df <- filtered_subj_df %>% filter(reveal_word == "hidden")
+```
+
+```{r}
+revealed_selfconf_df
+hidden_selfconf_df
+```
+
+```{r}
+correlation_hidden_selfconf <- cor.test(hidden_selfconf_df$confidence, hidden_selfconf_df$self_rating)
+correlation_hidden_selfconf
+```
+
+```{r}
+correlation_revealed_selfconf <- cor.test(revealed_selfconf_df$confidence, revealed_selfconf_df$self_rating)
+correlation_revealed_selfconf
+```
+
+Fishers r-to-z transformation to compare the two correlations: 
+
+```{r}
+cor_conf_hidden <- -0.2953345  # Correlation 1
+cor_conf_revealed <- -0.3414412   # Correlation 2
+n1hc <- 98   # Sample size for Correlation 1
+n2rc <- 98  # Sample size for Correlation 2
+```
+
+```{r}
+#Fisher's r-to-z transformation
+z1c <- 0.5 * log((1 + cor_conf_hidden) / (1 - cor_conf_hidden))
+z2c <- 0.5 * log((1 + cor_conf_revealed) / (1 - cor_conf_revealed))
+```
+
+
+```{r}
+# Calculate the z-score for the difference between the two correlations
+z_diffconf <- (z1c - z2c) / sqrt((1 / (n1hc - 3)) + (1 / (n2rc - 3)))
+```
+
+```{r}
+# Calculate the p-value for the z-score
+p_valueconf <- 2 * (1 - pnorm(abs(z_diffconf)))
+```
+
+```{r}
+print(paste("Z-score:", z_diffconf))
+print(paste("P-value:", p_valueconf))
+```
+
+3. CORRELATION BETWEEN MEAN MISSES PER WORD AND MEAN RANKING PER WORD
+
+```{r}
+word_guess_pair_df <- paired_df %>%
+  select(subject_pair, word, player, num_clicks, position.hidden, position.revealed)
+#Change word into a categorical variable 
+word_guess_pair_df$word <- factor(word_guess_pair_df$word)
+#Change num_clicks into an integer
+word_guess_pair_df$num_clicks <- as.integer(word_guess_pair_df$num_clicks)
+word_guess_pair_df
+```
+
+```{r}
+word_guess_pair_df <- word_guess_pair_df %>%
+  mutate(correct_number_guess = nchar(as.character(word)))
+word_guess_pair_df
+```
+
+Create a new column to count the misses
+
+```{r}
+word_guess_pair_df <- word_guess_pair_df %>%
+  mutate(misses = abs(num_clicks - correct_number_guess))
+word_guess_pair_df
+```
+
+Now make mean data frame by subject 
+
+```{r}
+mean_misses_pair_df <- word_guess_pair_df %>%
+  group_by(word) %>%
+ summarize(mean_misses = mean(misses))
+mean_misses_pair_df
+```
+
+
+```{r}
+mean_position_pair_df <- word_guess_pair_df %>%
+   group_by(word)%>%
+  summarise(position.hidden=mean(position.hidden),
+            position.revealed=mean(position.revealed))
+mean_position_pair_df
+```
+
+Merge 
+
+```{r}
+mean_word_pair_df <- mean_position_pair_df %>%
+  merge(mean_misses_pair_df) 
+mean_word_pair_df
+```
+
+```{r}
+# Create a composite position variable
+mean_word_pair_df <- mean_word_pair_df %>%
+  mutate(composite_position = (position.hidden + position.revealed) / 2)
+mean_word_pair_df
+```
+
+```{r}
+# Calculate the Pearson correlation between composite_position and mean_misses
+correlation_word_misses_pair <- cor.test(mean_word_pair_df$composite_position, mean_word_pair_df$mean_misses, method = "pearson")
+correlation_word_misses_pair
+```
+
+By condition
+
+Correlation for hidden
+
+```{r}
+# Calculate the Pearson correlation between composite_position and mean_misses
+correlation_word_misses_pair_hidden <- cor.test(mean_word_pair_df$position.hidden, mean_word_pair_df$mean_misses, method = "pearson")
+correlation_word_misses_pair_hidden
+```
+Plot
+
+```{r}
+hiddencorplot <- ggplot(
+  data = mean_word_pair_df, aes(x = position.hidden, y = mean_misses)
+) +
+  geom_point(mapping = aes(color = word))+
+  geom_text(aes(label = word), vjust = -1, hjust = 0.5, size =2.3) +
+  geom_smooth(method = "lm", se = FALSE)+
+ labs(x = "Mean Position Hidden", y = "Mean Misses", title = "Hidden Condition: Mean Position Ranking by Mean Misses")+
+ theme(legend.position = "none",
+       plot.title = element_text(size = 7)) +
+ xlim(18, 52)
+hiddencorplot
+```
+
+
+Correlation for revealed
+
+```{r}
+# Calculate the Pearson correlation between composite_position and mean_misses
+correlation_word_misses_pair_revealed <- cor.test(mean_word_pair_df$position.revealed, mean_word_pair_df$mean_misses, method = "pearson")
+correlation_word_misses_pair_revealed
+```
+Plot
+
+```{r}
+revealedcorplot <- ggplot(
+  data = mean_word_pair_df, aes(x = position.revealed, y = mean_misses)
+) +
+  geom_point(mapping = aes(color = word))+
+  geom_text(aes(label = word), vjust = -1, hjust = 0.5, size =2.3) +
+  geom_smooth(method = "lm", se = FALSE)+
+ labs(x = "Mean Position Revealed", y = "Mean Misses", title = "Revealed Condition: Mean Position Ranking by Mean Misses")+
+ theme(legend.position = "none",
+       plot.title = element_text(size = 7)) +
+ xlim(18, 52)
+revealedcorplot
+```
+Now join the plots together
+
+```{r}
+# Combine plots using cowplot
+combined_cor_plot <- plot_grid(hiddencorplot, revealedcorplot, labels = "AUTO", ncol = 2)
+combined_cor_plot
+ggsave(file="Exploratory Plots/combinedCorrelationWordScatter.png")
+```
+
+
+4. CORRELATION BETWEEN MEAN WORD DIFFICULTY PER PARTICIPANT AND MEAN PREDICTED POSITION RANKING BY PARTICIPANT
+
+```{r}
+word_guess_df <- filtered_df %>%
+  select(subj_id, word, num_clicks, position, reveal_word) 
+#Change word into a categorical variable 
+word_guess_df$word <- factor(word_guess_df$word)
+#Change num_clicks into an integer
+word_guess_df$num_clicks <- as.integer(word_guess_df$num_clicks)
+word_guess_df
+```
+
+Make a new column which counts the number of letters in each word and calls this the correct number of guesses
+
+```{r}
+word_guess_df <- word_guess_df %>%
+  mutate(correct_number_guess = nchar(as.character(word)))
+word_guess_df
+```
+
+
+Create a new column to count the misses
+
+```{r}
+word_guess_df <- word_guess_df %>%
+  mutate(misses = abs(num_clicks - correct_number_guess))
+word_guess_df
+```
+
+
+```{r}
+mean_misses_df <- word_guess_df %>%
+  group_by(word) %>%
+ summarize(mean_misses = mean(misses))
+mean_misses_df
+```
+
+```{r}
+word_guess_miss.df <- word_guess_df %>%
+  left_join(mean_misses_df, by = "word")
+word_guess_miss.df
+```
+
+
+Now work out player comeptence per game watched, which is miss per game - mean miss per word 
+
+```{r}
+word_guess_comp <- word_guess_miss.df %>%
+  mutate(player_competence = misses - mean_misses)
+word_guess_comp
+```
+
+Now to do the correlation on a population level
+
+```{r}
+#Define a function to calculate correlation for each participant
+calc_correlation_mean <- function(data) {
+  cor(data$mean_misses, data$position, use = "complete.obs")
+}
+```
+
+
+```{r}
+#Apply the function to each participant
+correlation_comp_mean_pop <- word_guess_comp %>%
+  group_by(subj_id) %>%
+  summarise(correlation = calc_correlation_mean(cur_data()))
+correlation_comp_mean_pop
+```
+
+```{r}
+# Perform a one-sample t-test to see if the mean correlation is different from 0
+t_test_comp_mean_pop <- t.test(correlation_comp_mean_pop$correlation, mu = 0)
+t_test_comp_mean_pop
+```
+
+Now do it by condition 
+
+Make a dataframe for revealed and for hidden 
+
+```{r}
+revealed_comp_pop.df <- word_guess_comp %>% filter(reveal_word == "revealed")
+hidden_comp_pop.df <- word_guess_comp %>% filter(reveal_word == "hidden")
+```
+
+```{r}
+revealed_comp_pop.df
+hidden_comp_pop.df
+```
+
+```{r}
+#Apply the function to each participant
+correlation_comp_pop_revealed <- revealed_comp_pop.df %>%
+  group_by(subj_id) %>%
+  summarise(correlation_revealed = calc_correlation_mean(cur_data()))
+correlation_comp_pop_revealed
+```
+
+```{r}
+# Perform a one-sample t-test to see if the mean correlation is different from 0
+t_test_comp_pop_revealed <- t.test(correlation_comp_pop_revealed$correlation_revealed, mu = 0)
+t_test_comp_pop_revealed
+```
+
+
+```{r}
+#Apply the function to each participant
+correlation_comp_pop_hidden <- hidden_comp_pop.df %>%
+  group_by(subj_id) %>%
+  summarise(correlation_hidden = calc_correlation_mean(cur_data()))
+correlation_comp_pop_hidden
+```
+
+```{r}
+# Perform a one-sample t-test to see if the mean correlation is different from 0
+t_test_comp_pop_hidden <- t.test(correlation_comp_pop_hidden$correlation_hidden, mu = 0)
+t_test_comp_pop_hidden
+```
+
+Combine correlation datasets 
+
+```{r}
+t_test_comp_cond_pop_result <- t.test(correlation_comp_pop_hidden$correlation_hidden, correlation_comp_pop_revealed$correlation_revealed, var.equal = TRUE)
+t_test_comp_cond_pop_result
+```
+
+
+5. CORRELATION BETWEEN MEAN MISSES PER PARTICIPANT AND MEAN PREDICTED POSITION RANKING BY PARTICIPANT
+
+```{r}
+#Define a function to calculate correlation for each participant
+calc_correlation <- function(data) {
+  cor(data$misses, data$position, use = "complete.obs")
+}
+```
+
+
+```{r}
+#Apply the function to each participant
+correlation_comp_pop <- word_guess_comp %>%
+  group_by(subj_id) %>%
+  summarise(correlation = calc_correlation(cur_data()))
+correlation_comp_pop
+```
+
+```{r}
+# Perform a one-sample t-test to see if the mean correlation is different from 0
+t_test_comp_pop <- t.test(correlation_comp_pop$correlation, mu = 0)
+t_test_comp_pop
+```
+
+
+Now do it by condition 
+
+Make a dataframe for revealed and for hidden 
+
+```{r}
+revealed_comp.df <- word_guess_comp %>% filter(reveal_word == "revealed")
+hidden_comp.df <- word_guess_comp %>% filter(reveal_word == "hidden")
+```
+
+```{r}
+revealed_comp.df
+hidden_comp.df
+```
+
+```{r}
+#Apply the function to each participant
+correlation_comp_revealed <- revealed_comp.df %>%
+  group_by(subj_id) %>%
+  summarise(correlation_revealed = calc_correlation(cur_data()))
+correlation_comp_revealed
+```
+
+```{r}
+# Perform a one-sample t-test to see if the mean correlation is different from 0
+t_test_comp_revealed <- t.test(correlation_comp_revealed$correlation_revealed, mu = 0)
+t_test_comp_revealed
+```
+
+
+```{r}
+#Apply the function to each participant
+correlation_comp_hidden <- hidden_comp.df %>%
+  group_by(subj_id) %>%
+  summarise(correlation_hidden = calc_correlation(cur_data()))
+correlation_comp_hidden
+```
+
+```{r}
+# Perform a one-sample t-test to see if the mean correlation is different from 0
+t_test_comp_hidden <- t.test(correlation_comp_hidden$correlation_hidden, mu = 0)
+t_test_comp_hidden
+```
+
+Combine correlation datasets 
+
+```{r}
+t_test_comp_cond_result <- t.test(correlation_comp_hidden$correlation_hidden, correlation_comp_revealed$correlation_revealed, var.equal = TRUE)
+t_test_comp_cond_result
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
