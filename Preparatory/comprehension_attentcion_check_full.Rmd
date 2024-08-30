@@ -1,0 +1,278 @@
+---
+title: "Pilot Analysis Full - Comprehension and Attention Checks "
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+This document summarises outcomes of the comprehension and attention checks for the full pilot pairs analysis. Please see the script for further details. 
+
+```{r setup, include = FALSE}
+library('groundhog')
+groundhog.library(
+  c(
+    'papaja', #for apa formatting
+    'pwr', # for power calculation
+    'tidyverse', # for pipe %>%
+    'emmeans',
+    'afex',
+    'dplyr'
+  ), "2024-04-15"
+)
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE, results='hide')
+```
+
+
+```{r}
+#Creating the filtered dataframe 
+pilot.df <- read.csv("combined_pilot_batches.csv", na=c("")) %>%
+  filter(!(word %in% c('', 'ZEBRA'))) %>%
+  mutate(subj_id=PROLIFIC_PID)
+pilot.df
+
+data_from_games <- pilot.df %>%
+  filter(trial_type=='Hangman_replay') %>%
+  dplyr::select(subj_id,word,num_clicks) 
+data_from_games
+
+data_from_confidence <- read.csv("combined_pilot_batches.csv") %>%
+  mutate(subj_id=PROLIFIC_PID,
+         confidence=as.numeric(confidence_slider_self_response)) %>%
+  group_by(subj_id) %>%
+  summarise(
+    confidence=mean(confidence,na.rm=T)
+  )
+data_from_confidence
+
+data_from_guesses <- pilot.df %>%
+  filter(trial_type=='Guess_leaderboard') %>%
+  dplyr::select(subj_id,subject_pair,word,position,position_RT,true_position,reveal_word,player,distance, self_rating)
+data_from_guesses
+          
+#Merge above to new usable, filtered dataframe
+filtered_df <- data_from_games %>%
+  merge(data_from_guesses) %>%
+  merge(data_from_confidence)
+filtered_df
+
+#Change variables from characters to correct classification 
+#Change reveal_word into a categorical variable
+filtered_df$reveal_word <- factor(filtered_df$reveal_word)
+#Change position into an integer variable 
+filtered_df$position <- as.integer(filtered_df$position)
+#Change true_position into an integer variable
+filtered_df$true_position <- as.integer(filtered_df$true_position)
+#Change distance into an integer variable 
+filtered_df$distance <- as.integer(filtered_df$distance)
+#Change self-rating into an integer
+filtered_df$self_rating <- as.integer(filtered_df$self_rating)
+#Change word into a categorical variable 
+filtered_df$word <- factor(filtered_df$word)
+
+#Check variables were changed correctly
+#Check class reveal_word
+class(filtered_df$reveal_word)
+#Check class position 
+class(filtered_df$position)
+#Check class true position 
+class(filtered_df$true_position)
+#check class distance 
+class(filtered_df$distance)
+#check class self rating
+class(filtered_df$self_rating)
+#check class word 
+class(filtered_df$word)
+
+#Rename levels of reveal_word from true and false to revealed and hidden, respectively 
+filtered_df$reveal_word <- factor(filtered_df$reveal_word, levels = c("true", "false"), labels = c("revealed", "hidden"))
+
+# Check the levels of reveal_word variable
+levels(filtered_df$reveal_word)
+
+#Check changes in filtered_df (whcih we will be using for our analysis)
+print(filtered_df)
+```
+
+
+```{r}
+#Create relevant dataframes
+data_from_comprehension <- pilot.df %>%
+  filter(trial_type== 'survey-multi-choice') %>%
+  dplyr::select(subj_id, correct, test_part)
+data_from_comprehension
+
+data_from_attention <- pilot.df %>%
+  filter(trial_type== 'survey-text') %>%
+  dplyr::select(subj_id, last_word)
+data_from_attention
+```
+
+# Comprehension Checks
+
+```{r}
+#Focusing on data from comprehension 
+# Convert 'correct' to logical if needed
+data_from_comprehension$correct <- as.logical(data_from_comprehension$correct)
+#change test_part into a categorical variable 
+data_from_comprehension$test_part <- factor(data_from_comprehension$test_part)
+data_from_comprehension
+```
+
+```{r}
+# Filter out 'self-rating' test parts
+comprehension_data <- data_from_comprehension %>%
+  filter(test_part != "self-rating")
+comprehension_data
+```
+
+```{r}
+# Calculate attempts to get each test part correct
+attempts <- comprehension_data %>%
+  group_by(subj_id, test_part) %>%
+  mutate(attempt_number = cumsum(correct == FALSE & lag(correct, default = TRUE) == TRUE) + 1) %>%
+  filter(correct) %>%
+  summarize(attempts_to_correct = first(attempt_number), .groups = 'drop')
+attempts
+```
+
+
+```{r}
+summary_stats_comprehension <- attempts %>%
+  group_by(test_part, attempts_to_correct) %>%
+  summarise(num_people = n(), .groups = 'drop')
+summary_stats_comprehension
+```
+
+```{r}
+# Specify the order of test_part categories
+test_part_order <- c("multichoice_nonpretend", "multichoice_leaderboard", "multichoice_tournament")
+```
+
+
+```{r plot_comprehension_checl_attempts, echo=FALSE, out.width ='75%'}
+ggplot(summary_stats_comprehension, aes(x = factor(test_part, levels = test_part_order), y = num_people, fill = factor(attempts_to_correct))) +
+  geom_bar(stat = "identity", position = "dodge", color = "black") +
+  labs(
+    title = "Number of attempts to correct by comprehension check",
+    x = "Test Part",
+    y = "Number of People",
+    fill = "Attempts to Correct"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)  # Rotate x-axis labels for better visibility
+  )
+```
+
+It looks like the second comprehension check is causing some confusing, with more people than not taking 2 turns to answer it correclty. Perhaps this is somehting we can look to change. 
+
+
+# Attention check
+
+```{r}
+data_from_attention
+```
+
+
+```{r}
+#Need to remove the rows which have na 
+data_from_attention_clean <- data_from_attention %>%
+  filter(!is.na(last_word))
+data_from_attention_clean
+```
+
+
+```{r}
+#Make a dataframe with subj_id and the last word they was (5th word) - attention check always falls at the end. 
+# Make a dataframe that is just subj_id and word
+
+data_words <- pilot.df %>%
+  filter(trial_type=='Hangman_replay') %>%
+  dplyr::select(subj_id,word) 
+data_words
+```
+
+```{r}
+#Change reveal_word into a categorical variable
+data_words$word <- factor(data_words$word)
+data_words
+```
+
+
+
+```{r}
+last_word_subj <- data_words %>%
+  group_by(subj_id) %>%
+  summarize(fifth_word = word[5])
+last_word_subj
+```
+
+
+```{r}
+#Now merge the two together
+attention_check_full <- left_join(data_from_attention_clean, last_word_subj, by = "subj_id") 
+attention_check_full
+```
+
+
+```{r}
+#First convert fifth_word to character 
+attention_check_full$fifth_word <- as.character(attention_check_full$fifth_word)
+```
+
+
+
+```{r}
+#Now to check attention check pass rate: 
+attention_check_full$letters_match <- tolower(attention_check_full$last_word) == tolower(attention_check_full$fifth_word)
+attention_check_full
+```
+
+
+```{r}
+attention_pass_counts <- table(attention_check_full$letters_match)
+attention_pass_counts
+```
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

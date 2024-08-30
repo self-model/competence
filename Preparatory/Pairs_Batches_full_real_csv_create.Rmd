@@ -1,0 +1,413 @@
+---
+title: "Pilot Pairs Full CSV Create "
+output: html_notebook
+---
+
+
+####################
+## Load Packages ##
+####################
+
+```{r}
+library(plyr)
+library("papaja")
+library('tidyverse')
+r_refs("r-references.bib")
+```
+#####################################################################################
+## Creat Function to change txt to csvs, and then merge into one usable dataframe ##
+######################################################################################
+
+CREATE FUNCTION TO CHANGE TXT TO CSV 
+
+
+convert txt to csv function
+
+```{r}
+convert_txt_to_csv <- function(txt_file) {
+  # Read the TXT file
+  data <- read.table(txt_file, header = TRUE, sep = ",", fill = TRUE) 
+  
+  # Define the CSV file path
+  csv_file <- sub("\\.txt$", ".csv", txt_file)
+  
+  # Write to CSV
+  write.csv(data, file = csv_file, row.names = FALSE)
+  
+  return(csv_file)
+}
+
+```
+
+
+
+BATCH 1
+
+set path of main folder
+```{r}
+folder_path <- "batch_1"
+```
+
+
+list all participant folders
+```{r}
+participant_folders_batch1 <- list.dirs(path = folder_path, full.names = TRUE, recursive = FALSE)
+participant_folders_batch1
+```
+
+list all nested folders
+```{r}
+nested_folders_batch1 <- list("batch_1")
+```
+
+loop through each participant folder to find nested folders
+```{r}
+for (folder_1 in participant_folders_batch1) {
+  nested_folder_batch1 <- list.dirs(path = folder_1, full.names = TRUE, recursive = FALSE)
+  nested_folders_batch1 <- c(nested_folders_batch1, nested_folder_batch1)
+}
+nested_folders_batch1
+```
+
+
+initialise a list to hold CSV file paths
+```{r}
+csv_files_batch1 <- list()
+```
+
+
+loop through each participant folder
+```{r}
+for (folder in nested_folders_batch1) {
+  txt_files <- list.files(path = folder, pattern= "\\.txt$", full.names = TRUE)
+  csv_files_batch1 <- c(csv_files_batch1, lapply(txt_files, convert_txt_to_csv))
+}
+```
+
+
+read all csv files into a list of data frames
+```{r}
+data_frames_batch1 <- lapply(csv_files_batch1, read.csv)
+```
+
+
+```{r}
+merged_df_batch1 <- do.call(rbind.fill, data_frames_batch1)
+merged_df_batch1 <- distinct(merged_df_batch1)
+print(merged_df_batch1)
+```
+
+Change subject_pair to a character, so it is compatible with the dataframe merge later
+
+
+```{r}
+merged_df_batch1$subject_pair <- as.integer(merged_df_batch1$subject_pair)
+merged_df_batch1$subject_identifier <- as.integer(merged_df_batch1$subject_identifier)
+merged_df_batch1
+```
+
+
+Create csv of merged, raw data
+```{r}
+write.csv(merged_df_batch1, "batch_1_merged_df.csv")
+```
+
+
+
+BATCH 2
+
+
+set path of main folder
+```{r}
+folder_path_2 <- "batch_2"
+```
+
+
+list all participant folders
+```{r}
+participant_folders_batch2 <- list.dirs(path = folder_path_2, full.names = TRUE, recursive = FALSE)
+participant_folders_batch2
+```
+
+list all nested folders
+```{r}
+nested_folders_batch2 <- list("batch_2")
+```
+
+loop through each participant folder to find nested folders
+```{r}
+for (folder in participant_folders_batch2) {
+  nested_folder_batch2 <- list.dirs(path = folder, full.names = TRUE, recursive = FALSE)
+  nested_folders_batch2 <- c(nested_folders_batch2, nested_folder_batch2)
+}
+nested_folders_batch2
+```
+
+
+
+initialise a list to hold CSV file paths
+```{r}
+csv_files_batch2 <- list()
+```
+
+
+loop through each participant folder
+```{r}
+for (folder in nested_folders_batch2) {
+  txt_files <- list.files(path = folder, pattern= "\\.txt$", full.names = TRUE)
+  csv_files_batch2 <- c(csv_files_batch2, lapply(txt_files, convert_txt_to_csv))
+}
+```
+
+
+read all csv files into a list of data frames
+```{r}
+data_frames_batch2 <- lapply(csv_files_batch2, read.csv)
+```
+
+
+```{r}
+merged_df_batch2 <- do.call(rbind.fill, data_frames_batch2)
+merged_df_batch2 <- distinct(merged_df_batch2)
+print(merged_df_batch2)
+```
+
+Create csv of merged, raw data
+```{r}
+write.csv(merged_df_batch2, "pairs_2_merged_df.csv")
+```
+
+
+
+BATCH 3
+
+
+set path of main folder
+```{r}
+folder_path_3 <- "batch_3"
+```
+
+
+list all participant folders
+```{r}
+participant_folders_batch3 <- list.dirs(path = folder_path_3, full.names = TRUE, recursive = FALSE)
+participant_folders_batch3
+```
+
+list all nested folders
+```{r}
+nested_folders_batch3 <- list("batch_3")
+```
+
+loop through each participant folder to find nested folders
+```{r}
+for (folder in participant_folders_batch3) {
+  nested_folder_batch3 <- list.dirs(path = folder, full.names = TRUE, recursive = FALSE)
+  nested_folders_batch3 <- c(nested_folders_batch3, nested_folder_batch3)
+}
+nested_folders_batch3
+```
+
+
+
+initialise a list to hold CSV file paths
+```{r}
+csv_files_batch3 <- list()
+```
+
+
+loop through each participant folder
+```{r}
+for (folder in nested_folders_batch3) {
+  txt_files <- list.files(path = folder, pattern= "\\.txt$", full.names = TRUE)
+  csv_files_batch3 <- c(csv_files_batch3, lapply(txt_files, convert_txt_to_csv))
+}
+```
+
+
+read all csv files into a list of data frames
+```{r}
+data_frames_batch3 <- lapply(csv_files_batch3, read.csv)
+data_frames_batch3
+```
+
+
+```{r}
+merged_df_batch3 <- do.call(rbind.fill, data_frames_batch3)
+#merged_df_batch3 <- distinct(merged_df_batch3)
+print(merged_df_batch3)
+```
+
+Create csv of merged, raw data
+```{r}
+write.csv(merged_df_batch3, "pairs_3_merged_df.csv")
+```
+
+
+
+BATCH 4
+
+set path of main folder
+```{r}
+folder_path_4 <- "batch_4"
+```
+
+
+list all participant folders
+```{r}
+participant_folders_batch4 <- list.dirs(path = folder_path_4, full.names = TRUE, recursive = FALSE)
+participant_folders_batch4
+```
+
+list all nested folders
+```{r}
+nested_folders_batch4 <- list("batch_4")
+```
+
+loop through each participant folder to find nested folders
+```{r}
+for (folder in participant_folders_batch4) {
+  nested_folder_batch4 <- list.dirs(path = folder, full.names = TRUE, recursive = FALSE)
+  nested_folders_batch4 <- c(nested_folders_batch4, nested_folder_batch4)
+}
+nested_folders_batch4
+```
+
+
+
+initialise a list to hold CSV file paths
+```{r}
+csv_files_batch4 <- list()
+```
+
+
+loop through each participant folder
+```{r}
+for (folder in nested_folders_batch4) {
+  txt_files <- list.files(path = folder, pattern= "\\.txt$", full.names = TRUE)
+  csv_files_batch4 <- c(csv_files_batch4, lapply(txt_files, convert_txt_to_csv))
+}
+```
+
+
+read all csv files into a list of data frames
+```{r}
+data_frames_batch4 <- lapply(csv_files_batch4, read.csv)
+```
+
+
+```{r}
+merged_df_batch4 <- do.call(rbind.fill, data_frames_batch4)
+merged_df_batch4 <- distinct(merged_df_batch4)
+print(merged_df_batch4)
+```
+
+Create csv of merged, raw data
+```{r}
+write.csv(merged_df_batch4, "pairs_4_merged_df.csv")
+```
+
+
+
+BATCH 5
+
+set path of main folder
+```{r}
+folder_path_5 <- "batch_5"
+```
+
+
+list all participant folders
+```{r}
+participant_folders_batch5 <- list.dirs(path = folder_path_5, full.names = TRUE, recursive = FALSE)
+participant_folders_batch5
+```
+
+list all nested folders
+```{r}
+nested_folders_batch5 <- list("batch_5")
+```
+
+loop through each participant folder to find nested folders
+```{r}
+for (folder in participant_folders_batch5) {
+  nested_folder_batch5 <- list.dirs(path = folder, full.names = TRUE, recursive = FALSE)
+  nested_folders_batch5 <- c(nested_folders_batch5, nested_folder_batch5)
+}
+nested_folders_batch5
+```
+
+
+
+initialise a list to hold CSV file paths
+```{r}
+csv_files_batch5 <- list()
+```
+
+
+loop through each participant folder
+```{r}
+for (folder in nested_folders_batch5) {
+  txt_files <- list.files(path = folder, pattern= "\\.txt$", full.names = TRUE)
+  csv_files_batch5 <- c(csv_files_batch5, lapply(txt_files, convert_txt_to_csv))
+}
+```
+
+
+read all csv files into a list of data frames
+```{r}
+data_frames_batch5 <- lapply(csv_files_batch5, read.csv)
+```
+
+
+```{r}
+merged_df_batch5 <- do.call(rbind.fill, data_frames_batch5)
+merged_df_batch5 <- distinct(merged_df_batch5)
+print(merged_df_batch5)
+```
+
+Create csv of merged, raw data
+```{r}
+write.csv(merged_df_batch5, "pairs_5_merged_df.csv")
+```
+
+
+BIG MERGE
+
+Now merge the datasets together to create the master dataset
+
+```{r}
+combined_pilot_batches <- bind_rows(merged_df_batch1, merged_df_batch2, merged_df_batch3, merged_df_batch4, merged_df_batch5)
+combined_pilot_batches
+```
+
+
+Create csv of merged, raw data
+```{r}
+write.csv(combined_pilot_batches, "combined_pilot_batches.csv")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
