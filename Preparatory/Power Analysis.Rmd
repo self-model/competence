@@ -18,13 +18,18 @@ A pilot study was conducted on 100 participants. However, no indication of signi
 
 Instead, the power analysis will be used to calculate how many participants will be required from a within-subject repeated measures test for 95% power and an effect size of 0.4. 
 
-
 ```{r}
  pwr.t.test(d = 0.4, sig.level = 0.05 , power = 0.95, type = c("paired"))
 ```
 
 For a small effect size, 84 pairs would be required. This would require 168 participants in total. 
 
+
+We decide instead to recruit 100 pairs of participants, or 200. 
+
+```{r}
+pwr.t.test(n = 200, power = 0.95, sig.level = 0.05, type = "paired")
+```
 
 
 
