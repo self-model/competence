@@ -48,7 +48,7 @@ BATCH 1
 
 set path of main folder
 ```{r}
-folder_path <- "../AllBatchesData/batch_1"
+folder_path <- "../All_batches_data/batch_1"
 ```
 
 
@@ -123,7 +123,7 @@ BATCH 2
 
 set path of main folder
 ```{r}
-folder_path_2 <- "../AllBatchesData/batch_2"
+folder_path_2 <- "../All_batches_data/batch_2"
 ```
 
 
@@ -189,7 +189,7 @@ BATCH 3
 
 set path of main folder
 ```{r}
-folder_path_3 <- "../AllBatchesData/batch_3"
+folder_path_3 <- "../All_batches_data/batch_3"
 ```
 
 
@@ -254,7 +254,7 @@ BATCH 4
 
 set path of main folder
 ```{r}
-folder_path_4 <- "../AllBatchesData/batch_4"
+folder_path_4 <- "../All_batches_data/batch_4"
 ```
 
 
@@ -318,7 +318,7 @@ BATCH 5
 
 set path of main folder
 ```{r}
-folder_path_5 <- "../AllBatchesData/batch_5"
+folder_path_5 <- "../All_batches_data/batch_5"
 ```
 
 
