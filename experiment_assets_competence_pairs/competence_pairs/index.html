@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Hangman</title>
+        <script src="jatos.js"></script>
+        <script src="jquery/jquery.min.js"></script>
+        <script src="mersenne-twister.js"></script>
+        <script src="jspsych-6.1.0/jspsych.js"></script>
+        <script src="jspsych-6.1.0/plugins/jspsych-fullscreen.js"></script>
+        <!-- <script src="jspsych-6.1.0/plugins/jspsych-hangman.js"></script> -->
+        <script src="jspsych-6.1.0/plugins/jspsych-type-this.js"></script>
+        <script src="jspsych-6.1.0/plugins/jspsych-hangman-replay.js"></script>
+        <script src="jspsych-6.1.0/plugins/jspsych-hangman.js"></script>
+        <script src="jspsych-6.1.0/plugins/jspsych-guess-leaderboard.js"></script>
+        <script src="jspsych-6.1.0/plugins/jspsych-instructions.js"></script>
+        <script src="jspsych-6.1.0/plugins/jspsych-call-function.js"></script>
+        <script src="jspsych-6.1.0/plugins/jspsych-survey-multi-choice.js"></script>
+        <script src="jspsych-6.1.0/plugins/jspsych-survey-text.js"></script>
+        <script src="jspsych-6.1.0/plugins/jspsych-external-html.js"></script>
+        <script src="jspsych-6.1.0/plugins/jspsych-html-keyboard-response.js"></script>
+        <script src="jspsych-6.1.0/plugins/jspsych-html-slider-response.js"></script>
+        <script src="p5/p5.min.js"></script>
+        <link href="https://fonts.googleapis.com/css2?family=Corben&family=Quicksand&display=swap" rel="stylesheet">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto">
+        <link href="style.css" rel="stylesheet" type="text/css"></link>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js"></script>
+    </head>
+    <body></body>
+    <script>
+
+    function makeTimeline() {
+
+      var number_word = 'thirty four';
+      var celeb_word = Math.random()>0.5? 'usain bolt':'shakira';
+      var fruit_word = Math.random()>0.5? 'nectarine':'fig';
+      var body_word = Math.random()>0.5? 'wrist':'thumb';
+      var state_word = Math.random()>0.5? 'hawaii':'kentucky';
+
+      window.words = shuffle([number_word,celeb_word,fruit_word,body_word,state_word]);
+      
+      window.players = [];
+      while (countUnique(window.players) < 5) { //to avoid showing two games of the same player
+        window.players=[]
+        window.words.forEach((word)=>{
+          window.players.push(shuffle(Object.keys(window.replay_data[word.toUpperCase().replace(' ','')]))[0])
+        })
+      }
+
+      window.games = []
+      window.words.forEach((word, i_word)=>{
+        window.games.push(window.replay_data[word.toUpperCase().replace(' ','')][window.players[i_word]])
+      })
+
+      timeline = [];
+
+      window.i_game = 0
+      window.reveal_word = window.subject_identifier%2==1? true:false
+      window.bonus=0;
+      window.np_instructions_num = 0;
+      window.comprehend_np = 0;
+      window.lb_instructions_num = 0;
+      window.comprehend_lb = 0;
+      window.tournament_instructions_num = 0;
+      window.comprehend_tournament = 0;
+
+
+      timeline.push({
+        type: 'fullscreen',
+        fullscreen_mode: true
+      });
+
+      timeline.push(
+        {type: 'instructions',
+         show_clickable_nav: true,
+         pages: () => [
+           `<h1>Welcome to the experiment :)</h1>
+           <p>This experiment is based on the game Hangman.
+           Your performance in the second part of the experiment will determine your bonus payment.</p>`] }
+      )
+
+      var first_instructions =  {type: 'instructions',
+       show_clickable_nav: true,
+       pages: () => [
+         `<h1>${window.np_instructions_num==0? 'Hangman' : 'Let\'s try again'}</h1>
+         <p>In the game of Hangman, your task is to reveal a hidden word or phrase by guessing letters.</p>
+         <p>What makes the game difficult is that you can’t see the word; all you can see
+         is a row of squares - a square for each letter.</p> <p><u>Use your mouse</u> to make letter guesses.</p> <p>We will have five types of words: <b>body parts</b>, <b>numbers</b>, <b>US states</b>, <b>fruit</b>, and <b>famous people</b>.</p> <p>You will start each game with 15 points
+         and lose one point for every guess of a letter that is not in the word. </p>`] }
+
+      var multichoice_nonpretend = {
+        type: 'survey-multi-choice',
+        questions: [
+          {prompt: `Just to make sure the instructions are clear, please complete the following sentence:</br></br>
+The goal of the game is to ...`,
+          options: [`... go <b>really fast</b> and finish the game as quickly as possible`,
+          '... click on letters in <b>alphabetical order</b>',
+          '... reveal the word with as <b>few letter guesses</b> as possible',
+         '... go <b>really slow</b> and finish the game as slowly as possible'], required:true}
+       ],
+       on_finish: (data) => {
+         data.correct = JSON.parse(data.responses).Q0.includes('<b>few letter guesses</b>'),
+         data.test_part = 'multichoice_nonpretend',
+         window.comprehend_np = data.correct;
+      }
+      }
+
+      timeline.push(
+        {timeline:[first_instructions,multichoice_nonpretend],
+        loop_function: function(data) {
+          window.np_instructions_num++;
+          return !window.comprehend_np}}
+      )
+
+      timeline.push(
+        {type: 'instructions',
+        show_clickable_nav: true,
+        pages:[  `<p>Let’s start with a practice round to get the hang of the game.</p>`]}
+      );
+
+      var practice_gg = {
+            type: "Hangman",
+            word: 'zebra',
+            category: 'an animal',
+            cheat: false,
+            asked: [],
+         };
+       timeline.push(practice_gg)
+
+       timeline.push({
+          type: 'instructions',
+          show_clickable_nav: true,
+          pages: () => {
+           console.log(jsPsych.data.get().last(1).values()[0])
+            num_points = jsPsych.data.get().last(1).values()[0].points;
+            num_clicks = jsPsych.data.get().last(1).values()[0].num_clicks;
+            word = jsPsych.data.get().last(1).values()[0].word.toUpperCase();
+            return [
+ `<p>You revealed the word ${word} with ${num_clicks} letter guesses,
+ so your number of points for this practice round is ${num_points}.</p>`,
+ `<h1>A twist in the plot</h1><p>Your task for the rest of the experiment is not to play the game, but to <u>watch the games of previous players</u>.</p>
+ <p>We will soon show you 5 videos of Hangman games played by real participants from a previous study.</p>
+ <p>Overall, we had 100 players who played 10 games each. These players <u>will soon be invited to take part in the second part of the experiment: a tournament</u>.</p>`,
+
+]}
+        })
+
+        var tournament_instructions =  {type: 'instructions',
+         show_clickable_nav: true,
+         pages: () => [
+           `<p>Remember, the tournament hasn't taken place yet.</p>`] }
+
+        var multichoice_tournament = {
+          type: 'survey-multi-choice',
+          questions: [
+            {
+              prompt: "The videos I will watch are...",
+              options: [
+                '...from the <b>upcoming tournament</b>.',
+                '...from <b>a previous session</b> that is not part of the upcoming tournament.',
+                '...from <b>a previous session</b> that is part of the upcoming tournament.'
+              ]
+            }],
+         on_finish: (data) => {
+           data.correct = JSON.parse(data.responses).Q0.includes('not part of the upcoming tournament'),
+           data.test_part = 'multichoice_leaderboard',
+           window.comprehend_tournament = data.correct;
+        }
+      }
+
+      timeline.push(multichoice_tournament);
+
+        timeline.push(
+          {timeline:[tournament_instructions,multichoice_tournament],
+          loop_function: function(data) {
+            window.tournament_instructions_num++;
+            return !window.comprehend_tournament},
+          conditional_function: ()=>{return !window.comprehend_tournament}}
+        )
+
+        timeline.push({
+               type: 'instructions',
+               show_clickable_nav: true,
+               pages: [
+        `<p>Great. We will show you videos of 5 previous games from 5 random players.</p>
+        <p>For every game you watch, you will be asked to <b>predict that player's position on the leaderboard in the upcoming tournament</b>. The player who will earn the highest number of points will come first, and the one with the lowest number, last.</p>`
+        ]})
+
+        var multichoice_leaderboard = {
+          type: 'survey-multi-choice',
+          questions: [
+            {
+              prompt: "My job is to predict...",
+              options: [
+                `...players' leaderboard position (in terms of <b>points</b>) in an <b>upcoming tournament.</b>`,
+                `...how well players did (in terms of <b>points</b>) in <b>previous games.</b>`,
+                `...players' leaderboard position (in terms of <b>speed</b>) in an <b>upcoming tournament.</b>`
+              ]
+            }],
+         on_finish: (data) => {
+           data.correct = JSON.parse(data.responses).Q0.includes(`...players' leaderboard position (in terms of <b>points</b>) in an <b>upcoming tournament.</b>`),
+           data.test_part = 'multichoice_tournament',
+           window.comprehend_lb = data.correct;
+        }
+      }
+
+      timeline.push(multichoice_leaderboard);
+
+      var leaderboard_instructions = {type: 'instructions',
+       show_clickable_nav: true,
+       pages: () => [
+         `<p>Remember, you will predict how well players will do in the upcoming tournament in terms of point count.</p>`] }
+
+         timeline.push(
+           {timeline:[leaderboard_instructions,multichoice_leaderboard],
+           loop_function: function(data) {
+             window.lb_instructions_num++;
+             return !window.comprehend_lb},
+           conditional_function: ()=>{return !window.comprehend_lb}}
+         )
+
+  timeline.push({
+         type: 'instructions',
+         show_clickable_nav: true,
+         pages: [
+`<p>Excellent. We are ready to begin.</p>
+<p>Try to make accurate predictions, because whenever your leaderboard guess will turn out to be within a distance of 1 or 0 places from the player's true position, <u>we will add one US dollar to your payment.</u></p>
+<p>Let's start.</p>`,
+
+]})
+
+
+
+
+
+
+      preword_screen  = {
+               type: 'instructions',
+               show_clickable_nav: true,
+               pages: () => {
+                 return window.reveal_word? [
+      `<p>You will now observe player number ${window.players[window.i_game]} trying to reveal the word <b>${window.games[window.i_game].word.toUpperCase()}</b> with as few letter guesses as possible.</p>
+<p>Pay close attention, as we will later ask you to predict, based on this game only, the position of player number ${window.players[window.i_game]} in the upcoming tournament leaderboard.</p>
+<p> To confirm you read this message, please type the hidden word in the next screen.<p>`] :
+      [`<p>You will now observe player number ${window.players[window.i_game]} trying to reveal a word with as few letter guesses as possible.</p>
+<p>Pay close attention, as we will later ask you to predict, based on this game only, the position of player number ${window.players[window.i_game]} in the upcoming tournament leaderboard.</p>`] }
+       };
+
+      type_word_screen  =    {
+         type: 'type-this',
+         word: ()=>{return(window.games[window.i_game].word)}
+      }
+      test_trial = {
+            type: "Hangman_replay",
+            word:  ()=> window.games[window.i_game].word.toUpperCase(),
+            click_log: ()=>window.games[window.i_game].click_log,
+            hover_log: ()=>window.games[window.i_game].hover_log,
+            category: ()=>window.games[window.i_game].category,
+            asked: [],
+         }
+
+      leaderboard_prompt  = {
+                  type: 'instructions',
+                  show_clickable_nav: true,
+                  pages: () => {
+                    return [
+         `<p>Now, we ask you to predict, based on this game alone, the position of player ${window.players[window.i_game]} in the upcoming tournament leaderboard.</p>`] }
+          };
+
+      leaderboard_guess = {
+        type:'Guess_leaderboard',
+        data: ()=>{return {
+          word: window.games[window.i_game].word.toUpperCase(),
+          player: window.players[window.i_game],
+          i_game: window.i_game,
+          true_position: window.games[window.i_game].position}},
+        on_finish: (data)=>{
+          data.distance = Math.abs(window.games[window.i_game].position-data.position);
+          window.distance = data.distance;
+          window.i_game++;
+          if (window.distance<2) {window.bonus++}}
+      };
+
+      // self_rating = {
+      //   type: 'html-slider-response',
+      //   stimulus: `<div style="width:500px;height: 100px; display: flex; flex-direction: column; align-items: center;">
+      //     <p>How would you have scored on this game (in terms of number of points), compared to this player?</p>
+      //        </div>`,
+      //         require_movement: true,
+      //         labels: ['much worse', 'about the same','much better'],
+      //         data: ()=>{return {
+      //           word: window.games[window.i_game].word.toUpperCase(),
+      //           player: window.players[window.i_game],
+      //           i_game: window.i_game}},
+      //         /* Save Data */
+      //        on_finish: function(data) {
+      //          window.i_game++;
+      //             if (window.distance<2) {window.bonus++}
+      //     console.log('Slider response:', data.response);
+      //     jsPsych.data.addDataToLastTrial({
+      //       self_rating: data.response
+      //     });
+      //   }
+      //  };
+
+      // feedback_screen = {
+      //             type: 'instructions',
+      //             show_clickable_nav: true,
+      //             pages: () => {
+      //               return [
+      //    `<p>This was game ${window.i_game+1} out of 5.</p>
+      //    <p>Your guess was ${window.distance} points removed from this player's true score, so ${window.distance<2? 'you will get additional 1 dollar in bonus': 'you will not get the additional bonus payment for this round'}.`] },
+      //    on_finish: ()=>{window.i_game++;
+      //    if (window.distance<2) {window.bonus++}}
+      //     };
+
+    if (window.reveal_word) {var test_trials = {
+             timeline: [preword_screen, type_word_screen, test_trial, leaderboard_prompt, leaderboard_guess],
+             repetitions: 5
+      } } else { var test_trials = {
+               timeline: [preword_screen, test_trial, leaderboard_prompt, leaderboard_guess],
+               repetitions: 5
+        }
+      }
+
+      timeline.push(test_trials)
+
+      var attentionCheck = {
+        type: 'survey-text',
+        questions: [
+          {prompt: 'What was the hidden word in the last game?',
+          rows: 1,
+          columns: 20,
+          placeholder: "Your answer"}
+        ],
+        name: 'attention_check',
+        data: ()=>{return {'last_word': window.words[4]}}
+      }
+      timeline.push(attentionCheck);
+
+      // Self rating
+      var self_rating = {
+          type: 'survey-multi-choice',
+          questions: [
+            {
+              prompt: "<p>Overall, you saw 5 games from 5 players. We now ask you to evaluate your own quality as a player relative to them.</p><p>If you had to compete against these players, how well would you do?</p>",
+              options: [
+                '1. I would be <b>first</b> out of the six of us.',
+                '2. I would be <b>second</b> out of the six of us.',
+                '3. I would be <b>third</b> out of the six of us.',
+                '4. I would be <b>fourth</b> out of the six of us.',
+                '5. I would be <b>fifth</b> out of the six of us.',
+                '6. I would be <b>last</b> out of the six of us.',
+
+              ]
+            }],
+         on_finish: (data) => {
+           data.position = JSON.parse(data.responses).Q0[0],
+           data.test_part = 'self-rating',
+           window.self_rating = data.position;
+        }
+      }
+
+      timeline.push(self_rating);
+
+      /* Confidence Slider Rating Self*/
+      var confSliderSelf = {
+        type: 'html-slider-response',
+        stimulus: `<p>Overall, how confident were you in your answer to this last question?</p>`,
+              require_movement: true,
+              labels: ['<p>Not at all confident</p>', '<p>Highly confident</p>'],
+              /* Save Data */
+               on_finish: function(data) {
+                  window.confidence = data.response;
+          jsPsych.data.addDataToLastTrial({
+            confidence_slider_self_response: data.response
+          });
+        }
+      }
+      timeline.push(confSliderSelf);
+
+      var endQuestionsOne = {
+        type: 'survey-text',
+        questions: [
+          {prompt: `Just two questions and we are done.
+            If you had to guess, what would you say we are trying to test in this experiment? Be as specific as you can.`,
+            rows: 5,
+            columns: 60,
+            placeholder: "Your answer"}
+        ],
+        name: 'purpose_guess'
+      }
+      timeline.push(endQuestionsOne);
+
+      // var endQuestionsTwo = {
+      //   type: 'survey-text',
+      //   questions: [
+      //     {prompt: 'Did you have any strategies when you were guessing the players’ ranking on the leaderboard?',
+      //     rows: 5,
+      //     columns: 60,
+      //     placeholder: "Your answer"}
+      //   ],
+      //   name: 'strategy'
+      // }
+      // timeline.push(endQuestionsTwo);
+
+      var endQuestionsThree = {
+        type: 'survey-text',
+        questions: [
+          {prompt: 'Anything else we should take into account when analyzing your data?',
+          rows: 5,
+          columns: 60,
+          placeholder: "Your answer"}
+        ],
+        name: 'worker_comments'
+      }
+      timeline.push(endQuestionsThree);
+
+      debrief = {
+                  type: 'instructions',
+                  show_clickable_nav: true,
+                  pages: [`<h1>Thank you.</h1>
+                    <p>The aim of this experiment was to understand how we judge the comptence of others during gameplay.</p>
+                    <p>We will calculate your bonus payment based on your guesses and make sure to pay you if your predictions were accurate</p>
+                    <p>If you have any questions, please contact us at nicole.george@worc.oxc.ac.uk or matan.mazor@all-souls.ox.ac.uk</p>
+                  <p>Please don't close this window until you are redirected back to Prolific. This may take up to 5 minutes.</p>`]
+          };
+
+      timeline.push(debrief)
+
+          return timeline
+        };
+
+        function shuffle(array) {
+          var currentIndex = array.length, temporaryValue, randomIndex;
+
+          // While there remain elements to shuffle...
+          while (0 !== currentIndex) {
+
+            // Pick a remaining element...
+            randomIndex = Math.floor(Math.random() * currentIndex);
+            currentIndex -= 1;
+
+            // And swap it with the current element.
+            temporaryValue = array[currentIndex];
+            array[currentIndex] = array[randomIndex];
+            array[randomIndex] = temporaryValue;
+          }
+
+          return array;
+        }
+
+        function hexToBytes(hex) {
+            for (var bytes = [], c = 0; c < hex.length; c += 2)
+            bytes.push(parseInt(hex.substr(c, 2), 16));
+            return bytes;
+        }
+
+        function shuffle(array) {
+          var currentIndex = array.length, temporaryValue, randomIndex;
+
+          // While there remain elements to shuffle...
+          while (0 !== currentIndex) {
+
+            // Pick a remaining element...
+            randomIndex = Math.floor(Math.random() * currentIndex);
+            currentIndex -= 1;
+
+            // And swap it with the current element.
+            temporaryValue = array[currentIndex];
+            array[currentIndex] = array[randomIndex];
+            array[randomIndex] = temporaryValue;
+          }
+
+          return array;
+        }
+
+        function countUnique(iterable) {
+          return new Set(iterable).size;
+        }
+
+
+$(window).resize(function() {
+  this.innerWidth = window.innerWidth;
+  this.innerHeight = window.innerHeight;
+  this.width = window.width;
+  this.height = window.height;
+})
+
+  jatos.onLoad(function () {
+    // window.participant_number = 1;
+    window.replay_data = jatos.batchSession.get('replay');
+    window.subject_identifier = jatos.batchSession.get('subj_id');
+    var m = new MersenneTwister();
+      Math.random = function() {return m.random()};
+      var protocol_sum = jatos.batchSession.get("protocol_sum");
+      console.log(protocol_sum)
+      var subject_pair = Math.floor(window.subject_identifier/2)
+      window.subject_sum = hexToBytes(
+        CryptoJS.SHA256(
+          protocol_sum+subject_pair).toString()
+      );
+      m.init_by_array(window.subject_sum, window.subject_sum.length);
+      jsPsych.data.addProperties({'protocol_sum':protocol_sum,
+      'subject_identifier':subject_identifier, 'subject_sum':window.subject_sum,'subject_pair':subject_pair});
+      timeline=makeTimeline();
+      jsPsych.init({
+        timeline: timeline,
+        on_finish: function() {
+            jatos.batchSession.set('subj_id',window.subject_identifier+1);
+            jsPsych.data.addProperties(jatos.urlQueryParameters);
+            jsPsych.data.addProperties({
+              practice_instructions: window.np_instructions_num,
+              leaderboard_instructions: window.lb_instructions_num,
+              bonus: window.bonus,
+              reveal_word: window.reveal_word,
+              self_rating: window.self_rating,
+              confidence: window.confidence});
+              var resultJson = jsPsych.data.get().json();
+
+              var resultCsv = jsPsych.data.get().ignore('hover_log').ignore('click_log').csv()
+              jatos.submitResultData(resultCsv)
+                .then(()=>
+                jatos.uploadResultFile(resultJson, `${window.subject_identifier}_data_${Date.parse(Date())}.json`, jatos.startNextComponent))
+            }
+  })
+})
+
+
+    </script>
+</html>
