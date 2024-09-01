@@ -272,7 +272,7 @@ t_test_result_self_rating_pair
 
 #### *H3: no effect of outcome knowledge on self-rating*
 
-A paired sample repeated measures t-test was conducted to compare the self-rating scores of the revealed and hidden outcome condition (figure 1, lower left panel). Self-rating measured where the participants think they would have come out of 6 had they played against the 5 players they watched, from 1 (best) to 6 (worst). There was no significant difference in the scores for the the revealed condition (*M* = `r round(meanSelfRev, 2)`, *SD* = `r round(sdSelfRev, 2)`) and the hidden condition (*M* = `r round(meanSelfHid, 2)`, *SD* =`r round(sdSelfHid, 2)`), and non-significant t-test result of (`r apa_print(t_test_result_self_rating_pair)$full_result`).
+A paired sample repeated measures t-test was conducted to compare the self-rating scores of the revealed and hidden outcome condition. Self-rating measured where the participants think they would have come out of 6 had they played against the 5 players they watched, from 1 (best) to 6 (worst). There was no significant difference in the scores for the the revealed condition (*M* = `r round(meanSelfRev, 2)`, *SD* = `r round(sdSelfRev, 2)`) and the hidden condition (*M* = `r round(meanSelfHid, 2)`, *SD* =`r round(sdSelfHid, 2)`), and non-significant t-test result of (`r apa_print(t_test_result_self_rating_pair)$full_result`).
 
 
 
@@ -291,7 +291,7 @@ t_test_result_confidence_pair
 
 #### *H4: no effect of outcome knowledge on confidence*
 
-A paired sample repeated measures t-test was conducted to compare the mean confidence in self-rating score in the revealed and hidden outcome conditions (figure 1). There was no significant difference in the scores for the revealed condition (*M* =`r round(meanConfRev, 2)`, *SD* =`r round(sdConfRev, 2)`) and the hidden condition (*M* = `r round(meanConfHid, 2)`, *SD* =`r round(sdConfHid, 2)`), and non-significant t-test result of (`r apa_print(t_test_result_confidence_pair)$full_result`).
+A paired sample repeated measures t-test was conducted to compare the mean confidence in self-rating score in the revealed and hidden outcome conditions. There was no significant difference in the scores for the revealed condition (*M* =`r round(meanConfRev, 2)`, *SD* =`r round(sdConfRev, 2)`) and the hidden condition (*M* = `r round(meanConfHid, 2)`, *SD* =`r round(sdConfHid, 2)`), and non-significant t-test result of (`r apa_print(t_test_result_confidence_pair)$full_result`).
 . 
 
 
