@@ -29,7 +29,7 @@ In the **Preparatory** folder, you will find:
 ### Confirmatory 
 The **Confirmatory** folder contains the analysis for the pre-registered hypotheses. 
 
-A data to r markdown file is also available here with the results of the confirmatory analysis only, which was tested the pre-registered hypotheses. The r markdown file is called **Confirmatory_results** and the accompanying document it produced is of the same name. 
+A data to r markdown file is also available here with the results of the confirmatory analysis only, which was ued to test the pre-registered hypotheses. The r markdown file is called **Confirmatory_results** and the accompanying document it produced is of the same name. 
 
 ### Exploratory
 The **Exploratory** folder contains a series of exploratory analysis, which investigated the data beyond the original hypotheses. You will find 
