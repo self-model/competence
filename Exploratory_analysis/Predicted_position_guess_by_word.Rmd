@@ -150,7 +150,7 @@ paired_df %>%
   theme(aspect.ratio = 1) +
   labs(title = "Pairwise Predicted Position Ranking")
 
-ggsave(file="Exploratory Plots/pairsWordsScatterSquare.png")
+ggsave(file="Exploratory_plots/pairsWordsScatterSquare.png")
 ```
 
 

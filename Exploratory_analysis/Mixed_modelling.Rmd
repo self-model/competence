@@ -2,6 +2,18 @@
 title: "Mixed Model"
 output: html_notebook
 ---
+Mixed Modelling Analysis
+
+Models appear in order they are reported:
+
+1. Misses Only Model
+2. Misses and Game Duration
+3. Word Difficulty and Player Competence
+4. Misses, game duration and condition
+4a Interactions of condition with speed and with misses
+
+
+LOAD PACKAGES
 
 ```{r setup, include = FALSE}
 library('groundhog')
@@ -26,7 +38,7 @@ groundhog.library(
 knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE, results='hide')
 ```
 
-
+PREPARE DATAFRAMES
 
 ```{r}
 pilot.df <- read.csv("combined_pilot_batches.csv", na=c("")) %>%
@@ -175,7 +187,11 @@ merge.speed_df <-
 merge.speed_df
 ```
 
-1. Misses Only Model
+RUN MODEL ANALYSIS
+
+#####################
+1. Misses Only Model#
+#####################
 
 ```{r}
 summary(simple_miss <- lmer(position ~ 1+misses + 
@@ -195,8 +211,9 @@ Fixed Effects Contribution (R²m): 24.63%
 Random Effects Contribution (R²c - R²m): 26.63% 
 Overall Model Fit (R²c): 51.26% 
 
-
-2. Misses and Game Duration
+#############################
+2. Misses and Game Duration #
+#############################
 
 ```{r}
 summary(misses_speed <- lmer(position  ~ 1+ misses + t +
@@ -223,9 +240,9 @@ Fixed Effects Contribution (R²m): 29.72%
 Random Effects Contribution (R²c - R²m):31.92% 
 Overall Model Fit (R²c): 61.64% 
 
-
-3. Word Difficulty and Player Competence
-
+#########################################
+3. Word Difficulty and Player Competence#
+#########################################
 
 ```{r}
 summary(difficulty_competence <- lmer(position  ~ 1+ mean_misses + player_competence +
@@ -252,9 +269,9 @@ Fixed Effects Contribution (R²m): 24.75%
 Random Effects Contribution (R²c - R²m): 27.33% 
 Overall Model Fit (R²c): 52.08% 
 
-
-4. Misses, game duration and condition
-
+#######################################
+4. Misses, game duration and condition#
+#######################################
 
 ```{r}
 summary(misses_speed_condition <- lmer(position  ~ 1 +  misses + t + reveal_word +
@@ -268,11 +285,11 @@ r.squaredGLMM(misses_speed_condition)
 ```
 
 
-Fixed Effects Contribution (R²m): 30.42%
+Fixed Effects Contribution (R²m): 30.68%
 
-Random Effects Contribution (R²c - R²m): 34.73%
+Random Effects Contribution (R²c - R²m): 33.80%
 
-Overall Model Fit (R²c): 65.14% 
+Overall Model Fit (R²c): 64.49% 
 
 
 ```{r}
@@ -280,9 +297,7 @@ anova(misses_speed, misses_speed_condition)
 ```
 
 
-4a
-
-Interactions of condition with speed and with misses
+4a Interactions of condition with speed and with misses
 
 ```{r}
 summary(simple_miss_cond <- lmer(position ~ 1+misses*reveal_word + 

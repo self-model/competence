@@ -340,7 +340,7 @@ p4
 # Combine plots using cowplot
 combined_plot1 <- plot_grid(p1, p4, ncol = 2)
 combined_plot1
-ggsave(file="confirmatory plots/combinedBoxplot1.png")
+ggsave(file="confirmatory_plots/combinedBoxplot1.png")
 ```
 
 
@@ -349,7 +349,7 @@ ggsave(file="confirmatory plots/combinedBoxplot1.png")
 # Combine plots using cowplot
 combined_plot2 <- plot_grid(p2, p3, ncol = 2)
 combined_plot2
-ggsave(file="confirmatory plots/combinedBoxplot2.png")
+ggsave(file="confirmatory_plots/combinedBoxplot2.png")
 ```
 
 
