@@ -20,15 +20,15 @@ You can find the accompanying code which was used for experiment programming in 
 You will notice there are two data folders. The folder named **All_batches_Data** containts the text files for all participants, organised in 5 batches, and retrieved from JATOS. All of the analysis, barring **speed_data** analysis in the **Exploratory** folder was run using csvs created from this data. This is because the data from the folder named **All_batches_speed_data** is more cumbersome, containing text and json files which held additional data which allowed game duration data to be extracted. 
 
 ### Preparatory
-In the **Preparatory** folder, you will find
+In the **Preparatory** folder, you will find:
 
-    - the power analysis used to determine the sample size of the study;
+    * the power analysis used to determine the sample size of the study;
     
-    - the script which converted the raw text data (from the **All_Batches_Data** folder) into a usable csvs. A csv per batch was created and then merged into a file called **combined_pilot_batches.csv** which is used by most of the analysis scripts; 
+    * the script which converted the raw text data (from the **All_Batches_Data** folder) into a usable csvs. A csv per batch was created and then merged into a file called **combined_pilot_batches.csv** which is used by most of the analysis scripts; 
     
-    - the missing data script labelled **missing_data_script**, which was used to check for any missing data;
+    * the missing data script labelled **missing_data_script**, which was used to check for any missing data;
     
-    - the comprehension and attention check scripts labelled **comprehension_attention_check_full** to ensure all participants had passed the relevant checks which ensured their data was of adequate quality to be included in the study. 
+    * the comprehension and attention check scripts labelled **comprehension_attention_check_full** to ensure all participants had passed the relevant checks which ensured their data was of adequate quality to be included in the study. 
 
 ### Confirmatory 
 The **Confirmatory** folder contains the analysis for the pre-registered hypotheses. 
