@@ -22,13 +22,13 @@ You will notice there are two data folders. The folder named **All_batches_Data*
 ### Preparatory
 In the **Preparatory** folder, you will find:
 
-    * the power analysis used to determine the sample size of the study;
+     the power analysis used to determine the sample size of the study;
     
-    * the script which converted the raw text data (from the **All_Batches_Data** folder) into a usable csvs. A csv per batch was created and then merged into a file called **combined_pilot_batches.csv** which is used by most of the analysis scripts; 
+     the script which converted the raw text data (from the **All_Batches_Data** folder) into a usable csvs. A csv per batch was created and then merged into a file called **combined_pilot_batches.csv** which is used by most of the analysis scripts; 
     
-    * the missing data script labelled **missing_data_script**, which was used to check for any missing data;
+     the missing data script labelled **missing_data_script**, which was used to check for any missing data;
     
-    * the comprehension and attention check scripts labelled **comprehension_attention_check_full** to ensure all participants had passed the relevant checks which ensured their data was of adequate quality to be included in the study. 
+     the comprehension and attention check scripts labelled **comprehension_attention_check_full** to ensure all participants had passed the relevant checks which ensured their data was of adequate quality to be included in the study. 
 
 ### Confirmatory 
 The **Confirmatory** folder contains the analysis for the pre-registered hypotheses. 
