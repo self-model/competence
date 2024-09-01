@@ -10,7 +10,7 @@ OSF pre-registation for this work is avaialble [here]([url](https://osf.io/khxn5
 
 ## Experiment Demos
 
-You can try the experiment by cliking [here]([url](http://161.35.32.77/publix/nsICzQho4ps)). You will randomly be shown either the hidden or revealed outcome condition. 
+You can try the experiment by cliking [here]([http://161.35.32.77/publix/nsICzQho4ps]). You will randomly be shown either the hidden or revealed outcome condition. 
 
 You can find the accompanying code which was used for experiment programming in the **experiment_assets_competence_pairs** folder of this repository. 
 
@@ -20,7 +20,7 @@ You can find the accompanying code which was used for experiment programming in 
 You will notice there are two data folders. The folder named **All_batches_Data** containts the text files for all participants, organised in 5 batches, and retrieved from JATOS. All of the analysis, barring **speed_data** analysis in the **Exploratory** folder was run using csvs created from this data. This is because the data from the folder named **All_batches_speed_data** is more cumbersome, containing text and json files which held additional data which allowed game duration data to be extracted. 
 
 ### Preparatory
-In the **Preparatory** folder, you will find:
+In the **Preparatory** folder, you will find
 
     - the power analysis used to determine the sample size of the study;
     
@@ -34,7 +34,7 @@ In the **Preparatory** folder, you will find:
 The **Confirmatory** folder contains the analysis for the pre-registered hypotheses. 
 
 ### Exploratory
-The **Exploratory** folder contains a series of exploratory analysis, which investigated the data beyond the original hypotheses. You will find: 
+The **Exploratory** folder contains a series of exploratory analysis, which investigated the data beyond the original hypotheses. You will find 
 
     - **Bayesian_t-tests** used on to test for evidence for the null on the confirmatory hypotheses;
     - **Better_than_average_comparisons** used to see whether participants predicted position rankings and self-ratings were better than average;
