@@ -6,11 +6,11 @@ The study includes one experiment wherein participants watch recordings of past 
 
 ## Pre-registration 
 
-OSF pre-registation for this work is avaialble [here]([url](https://osf.io/khxn5)). 
+OSF pre-registation for this work is avaialble [here](https://osf.io/khxn5). 
 
 ## Experiment Demos
 
-You can try the experiment by cliking [here]([http://161.35.32.77/publix/nsICzQho4ps]). You will randomly be shown either the hidden or revealed outcome condition. 
+You can try the experiment by cliking [here](http://161.35.32.77/publix/nsICzQho4ps). You will randomly be shown either the hidden or revealed outcome condition. 
 
 You can find the accompanying code which was used for experiment programming in the **experiment_assets_competence_pairs** folder of this repository. 
 
